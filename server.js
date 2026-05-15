@@ -6,7 +6,14 @@ const bcrypt = require('bcrypt');
 const session = require('express-session');
 const multer = require('multer');
 
-// ... rest of your code
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// ===== MIDDLEWARE =====
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'Public')));
+app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
 app.use(session({
     secret: process.env.SESSION_SECRET || 's-corp-secret-key-2024',
@@ -51,9 +58,9 @@ const PAYMENT_METHODS_FILE = path.join(DATA_DIR, 'paymentMethods.json');
 const COMPANY_BALANCE_FILE = path.join(DATA_DIR, 'companyBalance.json');
 const UPLOADS_DIR = path.join(__dirname, 'Uploads');
 
-// ===== PERMANENT ADMIN =====
-const ADMIN_EMAIL = 'admin@site.com';
-const ADMIN_PASSWORD = 'Admin@123';
+// ===== PERMANENT ADMIN - NOW READS FROM ENVIRONMENT VARIABLES =====
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@site.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@123';
 
 // ===== MULTER SETUP =====
 const storage = multer.diskStorage({
@@ -87,6 +94,8 @@ const upload = multer({
 // ===== INITIALIZE =====
 async function initialize() {
     console.log('Initializing S-CORP Server...');
+    console.log(`Admin Email: ${ADMIN_EMAIL}`);
+    console.log(`Admin Password: [HIDDEN]`);
     
     [DATA_DIR, UPLOADS_DIR].forEach(dir => {
         if (!fs.existsSync(dir)) {
@@ -254,7 +263,6 @@ function updateCompanyBalance(amount, type, description) {
     }
 }
 
-// Process referral commission when child gets video access
 async function processReferralCommission(childEmail, planName) {
     let users = readJSON(USERS_FILE) || [];
     const childIndex = users.findIndex(u => u.email === childEmail);
@@ -264,7 +272,6 @@ async function processReferralCommission(childEmail, planName) {
     const child = users[childIndex];
     const referredBy = child.referredBy;
     
-    // Check if child was referred by someone
     if (!referredBy) return false;
     
     const parentIndex = users.findIndex(u => u.email === referredBy);
@@ -275,7 +282,6 @@ async function processReferralCommission(childEmail, planName) {
     
     if (!planData) return false;
     
-    // Check if parent has a plan (must have purchased a plan to receive commission)
     if (!parent.plan || parent.plan === '') {
         console.log(`Parent ${referredBy} has no plan, cannot receive commission`);
         return false;
@@ -284,12 +290,10 @@ async function processReferralCommission(childEmail, planName) {
     const commission = planData.referralCommission;
     const currentParentBalance = parseFloat(parent.amount) || 0;
     
-    // Add commission to parent's balance
     users[parentIndex].amount = (currentParentBalance + commission).toFixed(2);
     users[parentIndex].referralEarnings = (parent.referralEarnings || 0) + commission;
     users[parentIndex].referralsWithPlan = (parent.referralsWithPlan || 0) + 1;
     
-    // Deduct commission from company balance
     updateCompanyBalance(commission, 'commission', `Referral commission paid to ${referredBy} for referring ${childEmail} (${planName})`);
     
     writeJSON(USERS_FILE, users);
@@ -361,7 +365,6 @@ app.post('/signup', async (req, res) => {
             parentUser = users.find(u => u.referral === referralCode);
             if (parentUser) {
                 referredBy = parentUser.email;
-                // Update parent's total referrals count (without plan yet)
                 const parentIndex = users.findIndex(u => u.email === parentUser.email);
                 if (parentIndex !== -1) {
                     users[parentIndex].totalReferralsAdded = (users[parentIndex].totalReferralsAdded || 0) + 1;
@@ -560,7 +563,7 @@ app.get('/getCompanyBalance', requireAdmin, (req, res) => {
     }
 });
 
-// GET USERS - With referral details
+// GET USERS
 app.get('/getUsers', requireAdmin, (req, res) => {
     const users = readJSON(USERS_FILE) || [];
     
@@ -671,7 +674,7 @@ app.post('/upload', requireLogin, upload.single('media'), (req, res) => {
     }
 });
 
-// TOGGLE VIDEO ACCESS - This triggers referral commission!
+// TOGGLE VIDEO ACCESS
 app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
     const { email, grantAccess } = req.body;
     
@@ -689,10 +692,8 @@ app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
         return res.json({ success: false, message: 'User has no plan selected. Cannot grant access.' });
     }
     
-    // Store the plan name before potentially changing anything
     const userPlan = user.plan;
     
-    // Toggle access
     users[userIndex].grantedVideos = grantAccess === true;
     users[userIndex].isPaid = grantAccess === true;
     
@@ -700,11 +701,8 @@ app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
         users[userIndex].videoAccessGrantedAt = new Date().toISOString();
         users[userIndex].paidAmount = planData ? planData.price : 0;
         
-        // Add to company collected balance
         updateCompanyBalance(planData.price, 'collected', `Payment from ${email} for ${user.plan}`);
         
-        // IMPORTANT: Process referral commission for the parent user
-        // This runs AFTER child gets video access
         await processReferralCommission(email, userPlan);
         
         console.log(`✅ GRANTED video access to ${email} for plan ${user.plan}`);
@@ -717,12 +715,12 @@ app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
     
     res.json({ 
         success: true, 
-        message: grantAccess ? `Video access GRANTED to ${email}${user.referredBy ? ' - Referral commission processed!' : ''}` : `Video access REVOKED from ${email}`,
+        message: grantAccess ? `Video access GRANTED to ${email}` : `Video access REVOKED from ${email}`,
         grantedVideos: grantAccess
     });
 });
 
-// PROCESS WITHDRAWAL (PAID BUTTON)
+// PROCESS WITHDRAWAL
 app.post('/processWithdrawal', requireAdmin, (req, res) => {
     const { email } = req.body;
     
@@ -751,13 +749,11 @@ app.post('/processWithdrawal', requireAdmin, (req, res) => {
         return res.json({ success: false, message: `Insufficient balance: ${currentUserBalance} < ${withdrawalAmount}` });
     }
     
-    // Deduct from user balance
     const newUserBalance = currentUserBalance - withdrawalAmount;
     users[userIndex].amount = newUserBalance.toFixed(2);
     users[userIndex].withdrawalRequested = false;
     users[userIndex].withdrawalMessage = `PAID - ${withdrawalAmount} PKR paid on ${new Date().toLocaleString()}`;
     
-    // Deduct from company balance
     updateCompanyBalance(withdrawalAmount, 'paid', `Withdrawal paid to ${email}`);
     
     writeJSON(USERS_FILE, users);
@@ -895,7 +891,7 @@ app.post('/saveWithdrawalInfo', requireLogin, (req, res) => {
     res.json({ success: true, message: 'Withdrawal information saved successfully!' });
 });
 
-// DELETE USER - Admin only
+// DELETE USER
 app.post('/deleteUser', requireAdmin, (req, res) => {
     const { email } = req.body;
     
@@ -961,5 +957,5 @@ app.listen(PORT, () => {
     console.log(`📊 Plans: 500, 1000, 1500 PKR`);
     console.log(`🎬 Video Commission: 30/40/50 PKR per video`);
     console.log(`👥 Referral Commission: 50/80/100 PKR (paid when child gets video access)`);
-    console.log(`🔐 Admin: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
+    console.log(`🔐 Admin: ${ADMIN_EMAIL} / [HIDDEN]`);
 });
