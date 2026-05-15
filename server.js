@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -5,17 +6,10 @@ const bcrypt = require('bcrypt');
 const session = require('express-session');
 const multer = require('multer');
 
-const app = express();
-const PORT = 3000;
-
-// ===== MIDDLEWARE =====
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'Public')));
-app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
+// ... rest of your code
 
 app.use(session({
-    secret: 's-corp-secret-key-2024',
+    secret: process.env.SESSION_SECRET || 's-corp-secret-key-2024',
     resave: false,
     saveUninitialized: true,
     cookie: { 
