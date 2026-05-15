@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S-CORP - Admin Panel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background: #1a1a1a; color: white; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        
+        .navbar {
+            background: #000;
+            padding: 15px 0;
+            border-bottom: 2px solid #ff0000;
+        }
+        .nav-container { display: flex; justify-content: space-between; align-items: center; }
+        .logo { color: white; font-size: 24px; font-weight: bold; text-decoration: none; }
+        .logo span { color: #ff0000; }
+        .nav-links { display: flex; gap: 15px; }
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+        .nav-link:hover { background: #333; }
+        .nav-link.active { background: #ff0000; }
+        .nav-link.logout { background: #333; color: #ff0000; }
+        
+        .admin-header {
+            background: #222;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: #222;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #333;
+        }
+        .stat-card.company {
+            background: linear-gradient(135deg, #222, #000);
+            border: 2px solid #ff0000;
+        }
+        .stat-card h2 { margin-bottom: 15px; font-size: 18px; }
+        .stat-value { font-size: 32px; font-weight: bold; color: #ff0000; margin-bottom: 5px; }
+        .stat-label { color: #aaa; font-size: 14px; }
+        
+        .plan-stats {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .plan-stat {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .tabs {
+            display: flex;
+            background: #222;
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
+        }
+        .tab {
+            padding: 15px 25px;
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        .tab:hover { background: #333; color: white; }
+        .tab.active {
+            background: #333;
+            color: white;
+            border-bottom-color: #ff0000;
+        }
+        
+        .tab-content {
+            display: none;
+            background: #222;
+            border-radius: 0 0 8px 8px;
+            padding: 25px;
+            border: 1px solid #333;
+            border-top: none;
+        }
+        .tab-content.active { display: block; }
+        
+        .table-container { overflow-x: auto; margin-top: 20px; }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .data-table th {
+            background: #333;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #ff0000;
+            white-space: nowrap;
+        }
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #444;
+            color: #ccc;
+        }
+        .data-table tr:hover { background: #2a2a2a; }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .badge-success { background: #1a3c1a; color: #4CAF50; }
+        .badge-warning { background: #3c3c1a; color: #FFD700; }
+        .badge-danger { background: #3c1a1a; color: #f44336; }
+        .badge-info { background: #1a3c3c; color: #00bcd4; }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #555;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        input:checked + .toggle-slider { background-color: #2e7d32; }
+        input:checked + .toggle-slider:before { transform: translateX(26px); }
+        
+        .btn {
+            padding: 8px 16px;
+            background: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: #cc0000; }
+        .btn-sm { padding: 6px 12px; font-size: 11px; }
+        .btn-success { background: #2e7d32; }
+        .btn-success:hover { background: #1b5e20; }
+        .btn-secondary { background: #333; }
+        .btn-secondary:hover { background: #444; }
+        .btn-danger { background: #8B0000; }
+        
+        .form-group { margin-bottom: 20px; }
+        .form-label {
+            display: block;
+            color: white;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            background: #333;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: white;
+            font-size: 16px;
+        }
+        .form-input:focus { outline: none; border-color: #ff0000; }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+        .alert-success { background: #1a3c1a; color: #4CAF50; border: 1px solid #2e7d32; display: block; }
+        .alert-error { background: #3c1a1a; color: #f44336; border: 1px solid #d32f2f; display: block; }
+        
+        .search-box { margin-bottom: 20px; }
+        .search-input {
+            width: 100%;
+            padding: 12px;
+            background: #333;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: white;
+            font-size: 16px;
+        }
+        
+        .upload-link {
+            color: #ff0000;
+            text-decoration: none;
+        }
+        .upload-link:hover { text-decoration: underline; }
+        
+        .status-pending { background: #ffa502; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .status-paid { background: #2e7d32; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .plan-stats { flex-direction: column; }
+            .tabs { flex-wrap: wrap; }
+            .tab { flex: 1; text-align: center; }
+            .nav-container { flex-direction: column; gap: 15px; }
+            .data-table th, .data-table td { padding: 8px; font-size: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a href="/admin.html" class="logo">S<span>-CORP ADMIN</span></a>
+            <div class="nav-links">
+                <a href="/home.html" class="nav-link">User Dashboard</a>
+                <a href="/logout" class="nav-link logout">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="admin-header">
+            <h1>Admin Panel</h1>
+            <p>Manage users, grant video access (triggers referral commission), process withdrawals</p>
+        </div>
+
+        <div id="alertMessage" class="alert" style="display: none;"></div>
+
+        <div class="stats-grid">
+            <div class="stat-card company">
+                <h2>🏢 Company Balance</h2>
+                <div class="stat-value" id="companyBalance">0 PKR</div>
+                <div class="stat-label">Current Balance</div>
+                <div style="margin-top: 15px; color: #aaa; font-size: 13px;">
+                    <div>Total Collected: <span id="totalCollected" style="color: white;">0 PKR</span></div>
+                    <div>Total Paid (Withdrawals): <span id="totalPaid" style="color: white;">0 PKR</span></div>
+                    <div>Commission Paid: <span id="totalCommissionPaid" style="color: #ffa502;">0 PKR</span></div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <h2>👥 Users</h2>
+                <div class="stat-value" id="totalUsers">0</div>
+                <div class="stat-label">Total Registered</div>
+                <div class="plan-stats" style="margin-top: 15px;">
+                    <div class="plan-stat"><div class="stat-label">Plan 1</div><div class="stat-value" style="font-size: 20px;" id="plan1Count">0</div></div>
+                    <div class="plan-stat"><div class="stat-label">Plan 2</div><div class="stat-value" style="font-size: 20px;" id="plan2Count">0</div></div>
+                    <div class="plan-stat"><div class="stat-label">Plan 3</div><div class="stat-value" style="font-size: 20px;" id="plan3Count">0</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="users">👥 Users Management</button>
+            <button class="tab" data-tab="videos">🎬 Videos</button>
+            <button class="tab" data-tab="payment">🏦 Payment Methods</button>
+        </div>
+
+        <div class="tab-content active" id="users-tab">
+            <div class="search-box">
+                <input type="text" class="search-input" id="userSearch" placeholder="Search by email...">
+            </div>
+            
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Plan</th>
+                            <th>Balance (PKR)</th>
+                            <th>Withdraw Limit</th>
+                            <th>Referral Earnings</th>
+                            <th>Referrals<br>Total</th>
+                            <th>With Plan</th>
+                            <th>Without Plan</th>
+                            <th>Payment Proof</th>
+                            <th>Withdraw Account</th>
+                            <th>Video Access</th>
+                            <th>Withdrawal Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <tr><td colspan="13" style="text-align: center;">Loading users...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-secondary" onclick="resetDailyCounters()">🔄 Reset Daily Counters</button>
+                <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh All Data</button>
+                <button class="btn btn-danger" onclick="resetCompanyBalance()">🏦 Reset Company Balance</button>
+            </div>
+        </div>
+
+        <div class="tab-content" id="videos-tab">
+            <h3 style="color: white; margin-bottom: 20px;">Manage Videos (5 Videos Max)</h3>
+            <form id="videosForm">
+                <div class="form-group"><label class="form-label">Video 1 URL</label><input type="text" class="form-input" id="video1" placeholder="https://www.youtube.com/embed/..."></div>
+                <div class="form-group"><label class="form-label">Video 2 URL</label><input type="text" class="form-input" id="video2" placeholder="https://www.youtube.com/embed/..."></div>
+                <div class="form-group"><label class="form-label">Video 3 URL</label><input type="text" class="form-input" id="video3" placeholder="https://www.youtube.com/embed/..."></div>
+                <div class="form-group"><label class="form-label">Video 4 URL</label><input type="text" class="form-input" id="video4" placeholder="https://www.youtube.com/embed/..."></div>
+                <div class="form-group"><label class="form-label">Video 5 URL</label><input type="text" class="form-input" id="video5" placeholder="https://www.youtube.com/embed/..."></div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn" id="editVideosBtn" onclick="toggleEditMode()">✏️ Edit Videos</button>
+                    <button type="submit" class="btn btn-success" id="saveVideosBtn" style="display: none;">💾 Save Changes</button>
+                    <button type="button" class="btn btn-secondary" onclick="loadVideos()">🔄 Load Videos</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="tab-content" id="payment-tab">
+            <h3 style="color: white; margin-bottom: 20px;">Company Payment Methods</h3>
+            <p style="color: #aaa; margin-bottom: 20px;">These accounts are shown to users for depositing payments</p>
+            <form id="paymentMethodsForm">
+                <div id="paymentMethodsContainer"></div>
+                <button type="button" class="btn btn-secondary" onclick="addPaymentMethod()" style="margin-bottom: 20px;">➕ Add Payment Method</button>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn" id="editPaymentBtn" onclick="togglePaymentEditMode()">✏️ Edit Methods</button>
+                    <button type="submit" class="btn btn-success" id="savePaymentBtn" style="display: none;">💾 Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allUsers = [];
+        let isVideoEditMode = false;
+        let isPaymentEditMode = false;
+
+        function showAlert(message, type) {
+            const alertDiv = document.getElementById('alertMessage');
+            alertDiv.textContent = message;
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.style.display = 'block';
+            setTimeout(() => { alertDiv.style.display = 'none'; }, 5000);
+        }
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById(`${this.dataset.tab}-tab`).classList.add('active');
+                if (this.dataset.tab === 'users') loadUsers();
+                if (this.dataset.tab === 'videos') loadVideos();
+                if (this.dataset.tab === 'payment') loadPaymentMethods();
+            });
+        });
+
+        async function loadCompanyBalance() {
+            try {
+                const res = await fetch('/getCompanyBalance');
+                const data = await res.json();
+                document.getElementById('companyBalance').textContent = `${data.balance.toFixed(2)} PKR`;
+                document.getElementById('totalCollected').textContent = `${data.totalCollected.toFixed(2)} PKR`;
+                document.getElementById('totalPaid').textContent = `${data.totalPaid.toFixed(2)} PKR`;
+                document.getElementById('totalCommissionPaid').textContent = `${data.totalCommissionPaid.toFixed(2)} PKR`;
+            } catch(e) { console.error(e); }
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/getUsers');
+                allUsers = await res.json();
+                
+                const totalUsers = allUsers.filter(u => u.email !== 'admin@site.com').length;
+                const plan1Count = allUsers.filter(u => u.plan === 'Plan 1').length;
+                const plan2Count = allUsers.filter(u => u.plan === 'Plan 2').length;
+                const plan3Count = allUsers.filter(u => u.plan === 'Plan 3').length;
+                
+                document.getElementById('totalUsers').textContent = totalUsers;
+                document.getElementById('plan1Count').textContent = plan1Count;
+                document.getElementById('plan2Count').textContent = plan2Count;
+                document.getElementById('plan3Count').textContent = plan3Count;
+                
+                displayUsers(allUsers);
+            } catch(e) { console.error(e); }
+        }
+
+        function displayUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+            const searchTerm = document.getElementById('userSearch').value.toLowerCase();
+            const filtered = users.filter(u => u.email !== 'admin@site.com' && u.email.toLowerCase().includes(searchTerm));
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="13" style="text-align: center;">No users found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            filtered.forEach(user => {
+                const row = document.createElement('tr');
+                
+                let uploadsHtml = 'No proof';
+                if (user.uploads && user.uploads.length > 0) {
+                    uploadsHtml = user.uploads.map(u => `<a href="${u.downloadUrl}" class="upload-link" target="_blank">📎 View</a>`).join('<br>');
+                }
+                
+                let withdrawAccountHtml = 'Not set';
+                if (user.withdrawalMethod && user.withdrawalAccount) {
+                    withdrawAccountHtml = `
+                        <strong>${user.withdrawalMethod}</strong><br>
+                        ${user.withdrawalAccount}<br>
+                        <span style="font-size: 10px; color: #aaa;">${user.accountHolderName || ''}</span><br>
+                        <span style="font-size: 10px; color: #ff0000;">${user.accountTitle || ''}</span>
+                    `;
+                }
+                
+                const isAccessOn = user.grantedVideos === true;
+                const toggleId = `toggle_${user.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                
+                let withdrawalStatusHtml = '';
+                let withdrawalActionHtml = '';
+                
+                if (user.withdrawalRequested) {
+                    withdrawalStatusHtml = '<span class="status-pending">⏳ PENDING</span>';
+                    withdrawalActionHtml = `<button class="btn btn-success btn-sm" onclick="processWithdrawal('${user.email}')">💰 PAY NOW</button>`;
+                } else if (user.withdrawalMessage && user.withdrawalMessage.includes('PAID')) {
+                    withdrawalStatusHtml = '<span class="status-paid">✓ PAID</span>';
+                    withdrawalActionHtml = '<span class="badge badge-info">Completed</span>';
+                } else {
+                    const currentAmount = parseFloat(user.amount);
+                    const withdrawLimit = parseFloat(user.withdrawalLimit);
+                    if (currentAmount >= withdrawLimit && withdrawLimit > 0 && user.withdrawalMethod) {
+                        withdrawalStatusHtml = '<span class="badge badge-info">💰 Eligible</span>';
+                        withdrawalActionHtml = '<span class="badge badge-warning">No Request</span>';
+                    } else {
+                        withdrawalStatusHtml = '<span class="badge badge-warning">Not Eligible</span>';
+                        withdrawalActionHtml = '<span class="badge badge-secondary">-</span>';
+                    }
+                }
+                
+                row.innerHTML = `
+                    <td style="white-space: nowrap;">${user.email}<br><span style="font-size: 10px; color: #666;">Referred by: ${user.referredBy || 'None'}</span></td>
+                    <td>${user.plan || '-'}</td>
+                    <td><strong>${user.amount} PKR</strong></td>
+                    <td>${user.withdrawalLimit} PKR</td>
+                    <td><strong style="color: #4CAF50;">${user.referralEarnings || 0} PKR</strong></td>
+                    <td>${user.totalReferralsAdded || 0}</td>
+                    <td><span class="badge badge-success">${user.referralsWithPlan || 0}</span></td>
+                    <td><span class="badge badge-warning">${user.referralsWithoutPlan || 0}</span></td>
+                    <td>${uploadsHtml}</td>
+                    <td style="min-width: 150px;">${withdrawAccountHtml}</td>
+                    <td>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="${toggleId}" ${isAccessOn ? 'checked' : ''} 
+                                   onchange="toggleVideoAccess('${user.email}', this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span style="font-size: 11px; margin-left: 5px;">${isAccessOn ? 'ON' : 'OFF'}</span>
+                    </td>
+                    <td>${withdrawalStatusHtml}</td>
+                    <td>
+                        ${withdrawalActionHtml}
+                        <button class="btn btn-danger btn-sm" onclick="deleteUser('${user.email}')" style="margin-top: 5px;">🗑️ Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        async function toggleVideoAccess(email, isOn) {
+            try {
+                const response = await fetch('/toggleVideoAccess', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, grantAccess: isOn })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    loadUsers();
+                    loadCompanyBalance();
+                } else {
+                    showAlert(result.message, 'error');
+                    const toggleId = `toggle_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                    const toggle = document.getElementById(toggleId);
+                    if (toggle) toggle.checked = !isOn;
+                }
+            } catch(e) {
+                showAlert('Error toggling video access', 'error');
+                const toggleId = `toggle_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                const toggle = document.getElementById(toggleId);
+                if (toggle) toggle.checked = !isOn;
+            }
+        }
+
+        async function processWithdrawal(email) {
+            if (!confirm(`Process withdrawal for ${email}?\n\nThis will:\n1. DEDUCT withdrawal amount from user's balance\n2. DEDUCT same amount from company balance\n\nClick OK to confirm.`)) return;
+            
+            try {
+                const res = await fetch('/processWithdrawal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showAlert(`✅ ${result.message}`, 'success');
+                    loadUsers();
+                    loadCompanyBalance();
+                } else {
+                    showAlert(`❌ ${result.message}`, 'error');
+                }
+            } catch(e) { 
+                showAlert('Error processing withdrawal', 'error');
+            }
+        }
+
+        async function deleteUser(email) {
+            if (!confirm(`⚠️ WARNING: Delete user ${email}?\n\nThis action cannot be undone.`)) return;
+            
+            try {
+                const res = await fetch('/deleteUser', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showAlert(`✅ ${result.message}`, 'success');
+                    loadUsers();
+                    loadCompanyBalance();
+                } else {
+                    showAlert(`❌ ${result.message}`, 'error');
+                }
+            } catch(e) { 
+                showAlert('Error deleting user', 'error');
+            }
+        }
+
+        async function loadVideos() {
+            try {
+                const res = await fetch('/getVideos');
+                const videos = await res.json();
+                document.getElementById('video1').value = videos.v1 || '';
+                document.getElementById('video2').value = videos.v2 || '';
+                document.getElementById('video3').value = videos.v3 || '';
+                document.getElementById('video4').value = videos.v4 || '';
+                document.getElementById('video5').value = videos.v5 || '';
+                
+                const inputs = document.querySelectorAll('#videosForm .form-input');
+                inputs.forEach(input => input.disabled = !isVideoEditMode);
+            } catch(e) { console.error(e); }
+        }
+
+        function toggleEditMode() {
+            isVideoEditMode = !isVideoEditMode;
+            const inputs = document.querySelectorAll('#videosForm .form-input');
+            inputs.forEach(input => input.disabled = !isVideoEditMode);
+            document.getElementById('editVideosBtn').style.display = isVideoEditMode ? 'none' : 'inline-block';
+            document.getElementById('saveVideosBtn').style.display = isVideoEditMode ? 'inline-block' : 'none';
+            if (!isVideoEditMode) loadVideos();
+        }
+
+        async function saveVideos() {
+            const videos = {
+                v1: document.getElementById('video1').value,
+                v2: document.getElementById('video2').value,
+                v3: document.getElementById('video3').value,
+                v4: document.getElementById('video4').value,
+                v5: document.getElementById('video5').value
+            };
+            try {
+                const res = await fetch('/saveVideos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(videos)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showAlert('Videos saved!', 'success');
+                    toggleEditMode();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            } catch(e) { showAlert('Error saving videos', 'error'); }
+        }
+
+        document.getElementById('videosForm').addEventListener('submit', (e) => { e.preventDefault(); saveVideos(); });
+
+        async function loadPaymentMethods() {
+            try {
+                const res = await fetch('/getDepositMethods');
+                const methods = await res.json();
+                displayPaymentMethods(methods);
+                const inputs = document.querySelectorAll('#paymentMethodsForm .method-name, #paymentMethodsForm .method-number');
+                inputs.forEach(input => input.disabled = !isPaymentEditMode);
+            } catch(e) { console.error(e); }
+        }
+
+        function displayPaymentMethods(methods) {
+            const container = document.getElementById('paymentMethodsContainer');
+            container.innerHTML = '';
+            methods.forEach((method, index) => {
+                const div = document.createElement('div');
+                div.style.cssText = 'padding: 15px; border: 1px solid #444; border-radius: 8px; margin-bottom: 15px; background: #2a2a2a;';
+                div.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <strong>Method ${index + 1}</strong>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="removeMethod(${index})" style="display: ${isPaymentEditMode ? 'inline-block' : 'none'}">Remove</button>
+                    </div>
+                    <div class="form-group"><label class="form-label">Method Name</label><input type="text" class="form-input method-name" value="${method.name}" ${!isPaymentEditMode ? 'disabled' : ''}></div>
+                    <div class="form-group"><label class="form-label">Account Number</label><input type="text" class="form-input method-number" value="${method.number}" ${!isPaymentEditMode ? 'disabled' : ''}></div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addPaymentMethod() {
+            const container = document.getElementById('paymentMethodsContainer');
+            const div = document.createElement('div');
+            div.style.cssText = 'padding: 15px; border: 1px solid #444; border-radius: 8px; margin-bottom: 15px; background: #2a2a2a;';
+            div.innerHTML = `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <strong>New Method</strong>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('div').remove()">Remove</button>
+                </div>
+                <div class="form-group"><label class="form-label">Method Name</label><input type="text" class="form-input method-name" placeholder="Easypaisa, JazzCash"></div>
+                <div class="form-group"><label class="form-label">Account Number</label><input type="text" class="form-input method-number" placeholder="03451234567"></div>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeMethod(index) {
+            const container = document.getElementById('paymentMethodsContainer');
+            if (container.children[index]) container.children[index].remove();
+        }
+
+        function togglePaymentEditMode() {
+            isPaymentEditMode = !isPaymentEditMode;
+            const inputs = document.querySelectorAll('#paymentMethodsForm .method-name, #paymentMethodsForm .method-number');
+            inputs.forEach(input => input.disabled = !isPaymentEditMode);
+            document.getElementById('editPaymentBtn').style.display = isPaymentEditMode ? 'none' : 'inline-block';
+            document.getElementById('savePaymentBtn').style.display = isPaymentEditMode ? 'inline-block' : 'none';
+            const removeBtns = document.querySelectorAll('#paymentMethodsForm .btn-danger');
+            removeBtns.forEach(btn => btn.style.display = isPaymentEditMode ? 'inline-block' : 'none');
+            if (!isPaymentEditMode) loadPaymentMethods();
+        }
+
+        async function savePaymentMethods() {
+            const methods = [];
+            const containers = document.querySelectorAll('#paymentMethodsContainer > div');
+            containers.forEach(container => {
+                const name = container.querySelector('.method-name')?.value;
+                const number = container.querySelector('.method-number')?.value;
+                if (name && number && name.trim() && number.trim()) methods.push({ name: name.trim(), number: number.trim() });
+            });
+            if (methods.length === 0) { showAlert('Please add at least one payment method', 'error'); return; }
+            try {
+                const res = await fetch('/saveDepositMethods', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ methods })
+                });
+                const result = await res.json();
+                if (result.success) { showAlert('Payment methods saved!', 'success'); togglePaymentEditMode(); }
+                else { showAlert(result.message, 'error'); }
+            } catch(e) { showAlert('Error saving payment methods', 'error'); }
+        }
+
+        document.getElementById('paymentMethodsForm').addEventListener('submit', (e) => { e.preventDefault(); savePaymentMethods(); });
+
+        async function resetDailyCounters() {
+            if (!confirm('Reset daily video counters for all users?')) return;
+            try {
+                const res = await fetch('/resetDailyCounters', { method: 'POST' });
+                const result = await res.json();
+                showAlert(result.message, 'success');
+                loadUsers();
+            } catch(e) { showAlert('Error', 'error'); }
+        }
+
+        async function resetCompanyBalance() {
+            if (!confirm('⚠️ WARNING: This will reset company balance to 0. Are you sure?')) return;
+            try {
+                const res = await fetch('/resetCompanyBalance', { method: 'POST' });
+                const result = await res.json();
+                if (result.success) { showAlert('Company balance reset to 0!', 'success'); loadCompanyBalance(); }
+                else { showAlert(result.message, 'error'); }
+            } catch(e) { showAlert('Error resetting balance', 'error'); }
+        }
+
+        function refreshData() {
+            loadCompanyBalance();
+            loadUsers();
+            loadVideos();
+            loadPaymentMethods();
+            showAlert('All data refreshed', 'success');
+        }
+
+        document.getElementById('userSearch').addEventListener('input', () => displayUsers(allUsers));
+        document.addEventListener('DOMContentLoaded', () => { refreshData(); });
+    </script>
+</body>
+</html>

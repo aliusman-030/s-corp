@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Sign Up - S-CORP</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+    body {
+        background: #1a1a1a;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        margin: 0;
+        font-family: 'Segoe UI', Arial, sans-serif;
+    }
+    
+    .signup-container {
+        width: 100%;
+        max-width: 450px;
+    }
+    
+    .signup-box {
+        background: #000000;
+        border-radius: 15px;
+        padding: 40px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+        border: 2px solid #ff4757;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .signup-box:before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg, #ff4757, #ff3838, #ff0000);
+        z-index: -1;
+        border-radius: 17px;
+        animation: borderGlow 3s ease infinite;
+    }
+    
+    @keyframes borderGlow {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; }
+    }
+    
+    .logo {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .logo h1 {
+        color: white;
+        font-size: 36px;
+        margin-bottom: 10px;
+        font-weight: bold;
+        letter-spacing: 2px;
+        text-shadow: 0 2px 10px rgba(255, 71, 87, 0.5);
+    }
+    
+    .logo p {
+        color: #ff4757;
+        font-size: 16px;
+        letter-spacing: 1px;
+        font-weight: 500;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 15px 20px;
+        background: #1a1a1a;
+        border: 2px solid #333;
+        border-radius: 10px;
+        font-size: 16px;
+        color: white;
+        transition: all 0.3s ease;
+        font-family: inherit;
+    }
+    
+    .form-group input::placeholder {
+        color: #666;
+    }
+    
+    .form-group input:focus {
+        border-color: #ff4757;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(255, 71, 87, 0.2);
+    }
+    
+    .form-group input:not(:placeholder-shown) {
+        border-color: #ff4757;
+    }
+    
+    .password-strength {
+        height: 5px;
+        background: #1a1a1a;
+        border-radius: 3px;
+        margin-top: 5px;
+        overflow: hidden;
+        border: 1px solid #333;
+    }
+    
+    .strength-bar {
+        height: 100%;
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+    
+    .strength-weak .strength-bar {
+        width: 33%;
+        background: #ff4757;
+    }
+    
+    .strength-medium .strength-bar {
+        width: 66%;
+        background: #ffa502;
+    }
+    
+    .strength-strong .strength-bar {
+        width: 100%;
+        background: #2ed573;
+    }
+    
+    .strength-text {
+        font-size: 12px;
+        margin-top: 5px;
+        text-align: right;
+        font-weight: 600;
+    }
+    
+    .strength-weak .strength-text {
+        color: #ff4757;
+    }
+    
+    .strength-medium .strength-text {
+        color: #ffa502;
+    }
+    
+    .strength-strong .strength-text {
+        color: #2ed573;
+    }
+    
+    .submit-btn {
+        width: 100%;
+        padding: 16px;
+        background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 10px;
+        position: relative;
+        overflow: hidden;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .submit-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(255, 71, 87, 0.3);
+    }
+    
+    .submit-btn:active {
+        transform: translateY(-1px);
+    }
+    
+    .submit-btn:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s ease;
+    }
+    
+    .submit-btn:hover:before {
+        left: 100%;
+    }
+    
+    .message {
+        text-align: center;
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 10px;
+        font-weight: bold;
+        font-size: 14px;
+        display: none;
+        border: 1px solid transparent;
+    }
+    
+    .message.success {
+        background: rgba(46, 204, 113, 0.1);
+        color: #2ecc71;
+        border-color: #2ecc71;
+        display: block;
+    }
+    
+    .message.error {
+        background: rgba(255, 71, 87, 0.1);
+        color: #ff4757;
+        border-color: #ff4757;
+        display: block;
+    }
+    
+    .links {
+        text-align: center;
+        margin-top: 25px;
+        padding-top: 25px;
+        border-top: 1px solid #333;
+    }
+    
+    .links a {
+        color: #ff4757;
+        text-decoration: none;
+        margin: 0 15px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: color 0.3s ease;
+        position: relative;
+        padding-bottom: 5px;
+    }
+    
+    .links a:after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: #ff4757;
+        transition: width 0.3s ease;
+    }
+    
+    .links a:hover {
+        color: white;
+    }
+    
+    .links a:hover:after {
+        width: 100%;
+    }
+    
+    .benefits {
+        background: rgba(255, 71, 87, 0.1);
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 25px;
+        border: 1px solid rgba(255, 71, 87, 0.3);
+    }
+    
+    .benefits h4 {
+        margin-bottom: 10px;
+        color: white;
+        font-size: 16px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .benefits ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #ff4757;
+    }
+    
+    .benefits li {
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 10px;
+        vertical-align: middle;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .match-text {
+        font-size: 12px;
+        margin-top: 5px;
+        font-weight: 600;
+    }
+    
+    .match-success {
+        color: #2ed573;
+    }
+    
+    .match-error {
+        color: #ff4757;
+    }
+    
+    /* Input focus animation */
+    @keyframes inputPulse {
+        0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+    }
+    
+    .form-group input:focus {
+        animation: inputPulse 1.5s infinite;
+    }
+    
+    /* Mobile fixes */
+    @media (max-width: 480px) {
+        body {
+            padding: 15px;
+            align-items: flex-start;
+            padding-top: 30px;
+        }
+        
+        .signup-container {
+            max-width: 100%;
+            margin: 0;
+        }
+        
+        .signup-box {
+            padding: 30px 20px;
+            border-radius: 12px;
+        }
+        
+        .logo h1 {
+            font-size: 28px;
+        }
+        
+        .form-group input {
+            padding: 14px 16px;
+            font-size: 16px;
+        }
+        
+        .submit-btn {
+            padding: 14px;
+            font-size: 16px;
+            min-height: 44px;
+        }
+        
+        .links a {
+            display: block;
+            margin: 10px 0;
+            text-align: center;
+        }
+        
+        .links span {
+            display: none;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+    }
+</style>
+</head>
+<body>
+    <div class="signup-container">
+        <div class="signup-box">
+            <div class="logo">
+                <h1>S-CORP</h1>
+                <p>Start Earning Today</p>
+            </div>
+            
+            <form id="signupForm">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Create a password" required>
+                    <div id="passwordStrength" class="password-strength">
+                        <div class="strength-bar"></div>
+                    </div>
+                    <div id="strengthText" class="strength-text"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Confirm your password" required>
+                    <div id="matchText" class="match-text"></div>
+                </div>
+                
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    <span id="btnText">Create Account</span>
+                </button>
+                
+                <div id="message" class="message"></div>
+            </form>
+            
+            <div class="benefits">
+                <h4>Why Join S-CORP?</h4>
+                <ul>
+                    <li>Earn money daily watching videos</li>
+                    <li>Referral commission system</li>
+                    <li>Instant withdrawals</li>
+                    <li>Secure and reliable platform</li>
+                </ul>
+            </div>
+            
+            <div class="links">
+                <a href="login.html">Already have an account? Login</a>
+                <span style="color: #ccc">|</span>
+                <a href="index.html">Back to Home</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Password strength checker
+        document.getElementById('password').addEventListener('input', function() {
+            const password = this.value;
+            const strengthDiv = document.getElementById('passwordStrength');
+            const strengthText = document.getElementById('strengthText');
+            
+            // Reset
+            strengthDiv.className = 'password-strength';
+            strengthText.textContent = '';
+            
+            if (password.length === 0) return;
+            
+            let strength = 0;
+            
+            // Length check
+            if (password.length >= 6) strength++;
+            if (password.length >= 10) strength++;
+            
+            // Character variety
+            if (/[a-z]/.test(password)) strength++;
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^A-Za-z0-9]/.test(password)) strength++;
+            
+            // Update UI
+            if (strength <= 2) {
+                strengthDiv.className = 'password-strength strength-weak';
+                strengthText.textContent = 'Weak password';
+                strengthText.style.color = '#ff4757';
+            } else if (strength <= 4) {
+                strengthDiv.className = 'password-strength strength-medium';
+                strengthText.textContent = 'Medium password';
+                strengthText.style.color = '#ffa502';
+            } else {
+                strengthDiv.className = 'password-strength strength-strong';
+                strengthText.textContent = 'Strong password';
+                strengthText.style.color = '#2ed573';
+            }
+        });
+        
+        // Password match checker
+        document.getElementById('confirmPassword').addEventListener('input', function() {
+            const password = document.getElementById('password').value;
+            const confirm = this.value;
+            const matchText = document.getElementById('matchText');
+            
+            if (confirm.length === 0) {
+                matchText.textContent = '';
+                return;
+            }
+            
+            if (password === confirm) {
+                matchText.textContent = '✓ Passwords match';
+                matchText.className = 'match-text match-success';
+            } else {
+                matchText.textContent = '✗ Passwords do not match';
+                matchText.className = 'match-text match-error';
+            }
+        });
+        
+        // Signup form submission
+        document.getElementById('signupForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            const message = document.getElementById('message');
+            
+            // Save original text
+            const originalText = btnText.textContent;
+            
+            // Show loading
+            btnText.innerHTML = '<div class="loading"></div> Creating account...';
+            btn.disabled = true;
+            message.className = 'message';
+            message.textContent = '';
+            
+            // Get form data
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // Validate password match
+            if (data.password !== data.confirmPassword) {
+                message.textContent = '❌ Passwords do not match';
+                message.className = 'message error';
+                btnText.textContent = originalText;
+                btn.disabled = false;
+                return;
+            }
+            
+            // Validate email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(data.email)) {
+                message.textContent = '❌ Please enter a valid email address';
+                message.className = 'message error';
+                btnText.textContent = originalText;
+                btn.disabled = false;
+                return;
+            }
+            
+            try {
+                const response = await fetch('/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const referralMsg = result.referral ? 
+                        ` Your referral code: ${result.referral}` : '';
+                    
+                    message.textContent = '✅ ' + result.message + referralMsg;
+                    message.className = 'message success';
+                    
+                    // Store email for auto-login
+                    localStorage.setItem('signup_email', data.email);
+                    
+                    // Redirect to login after delay
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                    
+                } else {
+                    message.textContent = '❌ ' + result.message;
+                    message.className = 'message error';
+                    btnText.textContent = originalText;
+                    btn.disabled = false;
+                }
+                
+            } catch (error) {
+                message.textContent = '❌ Connection error. Check server is running.';
+                message.className = 'message error';
+                btnText.textContent = originalText;
+                btn.disabled = false;
+                console.error('Signup error:', error);
+            }
+        });
+        
+        // Auto-focus email field
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('email').focus();
+            
+            // Pre-fill email from localStorage if exists
+            const savedEmail = localStorage.getItem('signup_email');
+            if (savedEmail) {
+                document.getElementById('email').value = savedEmail;
+                document.getElementById('password').focus();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S-CORP - Earn Money Watching Videos | Pakistan's #1 Earning Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            line-height: 1.6;
+        }
+
+        .navbar {
+            background: rgba(0,0,0,0.95);
+            padding: 15px 0;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            border-bottom: 2px solid #ff0000;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .logo span { color: #ff0000; }
+
+        .nav-links { display: flex; gap: 20px; }
+
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .nav-link:hover { background: #333; }
+        .btn-nav {
+            background: #ff0000;
+            color: white;
+        }
+        .btn-nav:hover { background: #cc0000; }
+
+        .hero {
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+            padding: 120px 0 80px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 span { color: #ff0000; }
+
+        .hero p {
+            font-size: 20px;
+            color: #aaa;
+            max-width: 700px;
+            margin: 0 auto 30px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 35px;
+            background: #ff0000;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin: 0 10px;
+        }
+
+        .btn:hover { background: #cc0000; transform: translateY(-3px); }
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #ff0000;
+            color: #ff0000;
+        }
+        .btn-outline:hover { background: #ff0000; color: white; }
+
+        .section {
+            padding: 80px 0;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .section-title h2 {
+            font-size: 36px;
+            margin-bottom: 15px;
+        }
+
+        .section-title p { color: #aaa; font-size: 18px; }
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .plan-card {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 30px;
+            border: 2px solid #333;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .plan-card:hover {
+            border-color: #ff0000;
+            transform: translateY(-10px);
+        }
+
+        .plan-card.popular {
+            border-color: #ff0000;
+            background: #1a0a0a;
+        }
+
+        .popular-tag {
+            background: #ff0000;
+            color: white;
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-bottom: 15px;
+        }
+
+        .plan-name { font-size: 28px; font-weight: bold; margin-bottom: 10px; }
+        .plan-price { font-size: 36px; color: #ff0000; font-weight: bold; margin-bottom: 20px; }
+        .plan-price span { font-size: 16px; color: #aaa; }
+
+        .plan-features {
+            list-style: none;
+            text-align: left;
+            margin: 25px 0;
+        }
+
+        .plan-features li {
+            padding: 10px 0;
+            color: #ccc;
+            border-bottom: 1px solid #333;
+        }
+
+        .plan-features li:before {
+            content: "✓ ";
+            color: #4CAF50;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-card {
+            background: #1a1a1a;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #333;
+        }
+
+        .feature-icon { font-size: 48px; margin-bottom: 20px; }
+        .feature-card h3 { margin-bottom: 15px; }
+        .feature-card p { color: #aaa; }
+
+        .commission-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1a1a1a;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .commission-table th {
+            background: #000;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            border-bottom: 2px solid #ff0000;
+        }
+
+        .commission-table td {
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+            color: #ccc;
+        }
+
+        .highlight-cell { color: #ff0000; font-weight: bold; }
+
+        .cta-section {
+            background: linear-gradient(135deg, #1a1a1a, #0a0a0a);
+            text-align: center;
+            padding: 80px 0;
+            border-top: 1px solid #333;
+        }
+
+        .cta-section h2 { font-size: 36px; margin-bottom: 20px; }
+        .cta-section p { color: #aaa; margin-bottom: 30px; }
+
+        footer {
+            background: #000;
+            padding: 40px 0;
+            text-align: center;
+            border-top: 2px solid #ff0000;
+        }
+
+        footer p { color: #666; margin: 10px 0; }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 32px; }
+            .nav-container { flex-direction: column; gap: 15px; }
+            .nav-links { flex-wrap: wrap; justify-content: center; }
+            .plans-grid { grid-template-columns: 1fr; }
+            .features-grid { grid-template-columns: 1fr; }
+            .commission-table { font-size: 12px; }
+            .btn { display: block; margin: 10px 0; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a href="/" class="logo">S<span>-CORP</span></a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/login.html" class="nav-link">Login</a>
+                <a href="/signup.html" class="nav-link btn-nav">Sign Up</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Earn Money <span>Watching Videos</span></h1>
+            <p>Watch videos, refer friends, and earn real money in Pakistani Rupees (PKR). Simple, transparent, and rewarding.</p>
+            <a href="/signup.html" class="btn">Start Earning Now</a>
+            <a href="#plans" class="btn btn-outline">View Plans</a>
+        </div>
+    </section>
+
+    <section id="plans" class="section">
+        <div class="container">
+            <div class="section-title">
+                <h2>Choose Your Plan</h2>
+                <p>Select a plan that fits your earning goals</p>
+            </div>
+
+            <div class="plans-grid">
+                <div class="plan-card">
+                    <div class="plan-name">Plan 1</div>
+                    <div class="plan-price">500 <span>PKR</span></div>
+                    <ul class="plan-features">
+                        <li>1 Video per day</li>
+                        <li>30 PKR per video watched</li>
+                        <li>Withdrawal Limit: 250 PKR</li>
+                        <li>Referral Commission: 50 PKR</li>
+                    </ul>
+                    <a href="/signup.html" class="btn" style="width: 100%;">Get Started</a>
+                </div>
+
+                <div class="plan-card popular">
+                    <div class="popular-tag">🔥 MOST POPULAR</div>
+                    <div class="plan-name">Plan 2</div>
+                    <div class="plan-price">1,000 <span>PKR</span></div>
+                    <ul class="plan-features">
+                        <li>3 Videos per day</li>
+                        <li>40 PKR per video watched</li>
+                        <li>Withdrawal Limit: 500 PKR</li>
+                        <li>Referral Commission: 80 PKR</li>
+                    </ul>
+                    <a href="/signup.html" class="btn" style="width: 100%;">Get Started</a>
+                </div>
+
+                <div class="plan-card">
+                    <div class="plan-name">Plan 3</div>
+                    <div class="plan-price">1,500 <span>PKR</span></div>
+                    <ul class="plan-features">
+                        <li>5 Videos per day</li>
+                        <li>50 PKR per video watched</li>
+                        <li>Withdrawal Limit: 750 PKR</li>
+                        <li>Referral Commission: 100 PKR</li>
+                    </ul>
+                    <a href="/signup.html" class="btn" style="width: 100%;">Get Started</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" style="background: #111;">
+        <div class="container">
+            <div class="section-title">
+                <h2>How It Works</h2>
+                <p>Simple steps to start earning</p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📝</div>
+                    <h3>1. Sign Up</h3>
+                    <p>Create your free account in minutes</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📋</div>
+                    <h3>2. Choose Plan</h3>
+                    <p>Select a plan that fits your goals</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎬</div>
+                    <h3>3. Watch Videos</h3>
+                    <p>Watch and earn PKR per video</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💰</div>
+                    <h3>4. Withdraw</h3>
+                    <p>Withdraw your earnings easily</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <div class="section-title">
+                <h2>Commission Structure</h2>
+                <p>Earn through videos and referrals</p>
+            </div>
+
+            <table class="commission-table">
+                <thead>
+                    <tr><th>Earning Method</th><th>Plan 1 (500 PKR)</th><th>Plan 2 (1,000 PKR)</th><th>Plan 3 (1,500 PKR)</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>Video Watching</strong></td><td class="highlight-cell">30 PKR/video</td><td class="highlight-cell">40 PKR/video</td><td class="highlight-cell">50 PKR/video</td></tr>
+                    <tr><td><strong>Referral Commission</strong></td><td>50 PKR</td><td>80 PKR</td><td>100 PKR</td></tr>
+                    <tr><td><strong>Daily Videos</strong></td><td>1 video</td><td>3 videos</td><td>5 videos</td></tr>
+                    <tr><td><strong>Withdrawal Limit</strong></td><td>250 PKR</td><td>500 PKR</td><td>750 PKR</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <div class="container">
+            <h2>Ready to Start Earning?</h2>
+            <p>Join thousands of users already earning with S-CORP</p>
+            <a href="/signup.html" class="btn">Sign Up Now</a>
+            <a href="/login.html" class="btn btn-outline">Login</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 S-CORP. All rights reserved.</p>
+            <p>Earn money watching videos - All transactions in Pakistani Rupees (PKR)</p>
+        </div>
+    </footer>
+</body>
+</html>

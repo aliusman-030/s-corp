@@ -1,0 +1,19 @@
+S-CORP/
+├── server.js                    (Root - Working!)
+├── package.json
+├── package-lock.json
+├── Data/                       (Created automatically)
+│   ├── users.json              (Admin + users)
+│   ├── videoAccess.json        (4 YouTube videos)
+│   └── payments.json           (Payment methods)
+├── Uploads/                    (User uploads)
+└── Public/                     (All your HTML/CSS)
+    ├── index.html              ✅ (Complete!)
+    ├── login.html              ✅ (Complete!)
+    ├── signup.html             ✅ (Complete!)
+    ├── style.css               ✅ (Complete!)
+    ├── home.html               (Needs content)
+    ├── profile.html            (Needs content)
+    ├── admin.html              (Needs content)
+    ├── videos.html             (Needs content)
+    └── script.js               (JavaScript for all pages)
