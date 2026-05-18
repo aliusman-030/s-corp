@@ -1039,6 +1039,52 @@ app.post('/resetCompanyBalance', requireAdmin, async (req, res) => {
 });
 
 // START SERVER
+// DEBUG - Force create admin account
+app.get('/force-create-admin', async (req, res) => {
+    try {
+        const hashedAdminPass = await bcrypt.hash(ADMIN_PASSWORD, 10);
+        const result = await usersCollection.updateOne(
+            { email: ADMIN_EMAIL },
+            { 
+                $set: {
+                    email: ADMIN_EMAIL,
+                    password: ADMIN_PASSWORD,
+                    hashedPassword: hashedAdminPass,
+                    plan: 'Plan 1',
+                    watched: [],
+                    watchedKeys: [],
+                    referral: 'ADMIN-REF',
+                    amount: 0,
+                    withdrawalRequested: false,
+                    withdrawalMessage: '',
+                    grantedVideos: true,
+                    videoAccessGrantedAt: new Date().toISOString(),
+                    uploads: [],
+                    role: 'admin',
+                    withdrawalMethod: 'Easypaisa',
+                    withdrawalAccount: '03000000000',
+                    accountHolderName: 'Admin Account',
+                    accountTitle: 'Admin Account Title',
+                    createdAt: new Date().toISOString(),
+                    totalReferralsAdded: 0,
+                    referralsWithPlan: 0,
+                    referralsWithoutPlan: 0,
+                    dailyVideosWatched: 0,
+                    referralEarnings: 0,
+                    videoEarnings: 0,
+                    referredBy: '',
+                    lastDailyReset: new Date().toISOString(),
+                    isPaid: true,
+                    paidAmount: 500
+                }
+            },
+            { upsert: true }
+        );
+        res.json({ success: true, message: 'Admin created/updated', result: result });
+    } catch (error) {
+        res.json({ success: false, error: error.message });
+    }
+});
 connectDB().then(() => {
     app.listen(PORT, () => {
         console.log(`✅ S-CORP server running on port ${PORT}`);
