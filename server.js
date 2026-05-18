@@ -52,7 +52,7 @@ const PLANS = {
 };
 
 // ===== MONGODB CONNECTION =====
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://s-corp-user:S-Corp@2026Secure@cluster0.rjxsj7i.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://s-corp-user:S-Corp%402026Secure@cluster0.rjxsj7i.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 const DB_NAME = 's-corp';
 
 let db;
@@ -63,7 +63,7 @@ let companyBalanceCollection;
 
 // ===== PERMANENT ADMIN =====
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@site.com';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Abac@123';
 
 // ===== MULTER SETUP FOR UPLOADS =====
 const UPLOADS_DIR = path.join(__dirname, 'Uploads');
@@ -117,85 +117,142 @@ async function connectDB() {
 
 // ===== INITIALIZE DATABASE =====
 async function initializeDB() {
-    // Create admin if not exists
-    const adminExists = await usersCollection.findOne({ email: ADMIN_EMAIL });
-    if (!adminExists) {
-        const hashedAdminPass = await bcrypt.hash(ADMIN_PASSWORD, 10);
-        await usersCollection.insertOne({
-            email: ADMIN_EMAIL,
-            password: ADMIN_PASSWORD,
-            hashedPassword: hashedAdminPass,
-            plan: 'Plan 1',
-            watched: [],
-            watchedKeys: [],
-            referral: 'ADMIN-REF',
-            amount: 0,
-            withdrawalRequested: false,
-            withdrawalMessage: '',
-            grantedVideos: true,
-            videoAccessGrantedAt: new Date().toISOString(),
-            uploads: [],
-            role: 'admin',
-            withdrawalMethod: 'Easypaisa',
-            withdrawalAccount: '03000000000',
-            accountHolderName: 'Admin Account',
-            accountTitle: 'Admin Account Title',
-            createdAt: new Date().toISOString(),
-            totalReferralsAdded: 0,
-            referralsWithPlan: 0,
-            referralsWithoutPlan: 0,
-            dailyVideosWatched: 0,
-            referralEarnings: 0,
-            videoEarnings: 0,
-            referredBy: '',
-            lastDailyReset: new Date().toISOString(),
-            isPaid: true,
-            paidAmount: 500
-        });
-        console.log('✓ Created admin account in MongoDB');
-    }
-    
-    // Create default videos
-    const videosExist = await videosCollection.findOne({ _id: 'videos' });
-    if (!videosExist) {
-        await videosCollection.insertOne({
-            _id: 'videos',
-            v1: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-            v2: "https://www.youtube.com/embed/3JZ_D3ELwOQ",
-            v3: "https://www.youtube.com/embed/kJQP7kiw5Fk",
-            v4: "https://www.youtube.com/embed/9bZkp7q19f0",
-            v5: "https://www.youtube.com/embed/tgbNymZ7vqY"
-        });
-        console.log('✓ Created default videos in MongoDB');
-    }
-    
-    // Create default payment methods
-    const paymentMethodsExist = await paymentMethodsCollection.findOne({ _id: 'methods' });
-    if (!paymentMethodsExist) {
-        await paymentMethodsCollection.insertOne({
-            _id: 'methods',
-            methods: [
-                { name: "Easypaisa", number: "03484252348", type: "deposit" },
-                { name: "JazzCash", number: "03059170455", type: "deposit" }
-            ]
-        });
-        console.log('✓ Created default payment methods in MongoDB');
-    }
-    
-    // Create company balance
-    const companyBalanceExist = await companyBalanceCollection.findOne({ _id: 'balance' });
-    if (!companyBalanceExist) {
-        await companyBalanceCollection.insertOne({
-            _id: 'balance',
-            totalCollected: 0,
-            totalPaid: 0,
-            totalCommissionPaid: 0,
-            balance: 0,
-            transactions: []
-        });
-        console.log('✓ Created company balance in MongoDB');
+    try {
+        // Create admin if not exists
+        const adminExists = await usersCollection.findOne({ email: ADMIN_EMAIL });
+        if (!adminExists) {
+            const hashedAdminPass = await bcrypt.hash(ADMIN_PASSWORD, 10);
+            await usersCollection.insertOne({
+                email: ADMIN_EMAIL,
+                password: ADMIN_PASSWORD,
+                hashedPassword: hashedAdminPass,
+                plan: 'Plan 1',
+                watched: [],
+                watchedKeys: [],
+                referral: 'ADMIN-REF',
+                amount: 0,
+                withdrawalRequested: false,
+                withdrawalMessage: '',
+                grantedVideos: true,
+                videoAccessGrantedAt: new Date().toISOString(),
+                uploads: [],
+                role: 'admin',
+                withdrawalMethod: 'Easypaisa',
+                withdrawalAccount: '03000000000',
+                accountHolderName: 'Admin Account',
+                accountTitle: 'Admin Account Title',
+                createdAt: new Date().toISOString(),
+                totalReferralsAdded: 0,
+                referralsWithPlan: 0,
+                referralsWithoutPlan: 0,
+                dailyVideosWatched: 0,
+                referralEarnings: 0,
+                videoEarnings: 0,
+                referredBy: '',
+                lastDailyReset: new Date().toISOString(),
+                isPaid: true,
+                paidAmount: 500
+            });
+            console.log('✓ Created admin account in MongoDB');
+        } else {
+            console.log('✓ Admin account already exists');
+        }
+        
+        // Create default videos
+        const videosExist = await videosCollection.findOne({ _id: 'videos' });
+        if (!videosExist) {
+            await videosCollection.insertOne({
+                _id: 'videos',
+                v1: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+                v2: "https://www.youtube.com/embed/3JZ_D3ELwOQ",
+                v3: "https://www.youtube.com/embed/kJQP7kiw5Fk",
+                v4: "https://www.youtube.com/embed/9bZkp7q19f0",
+                v5: "https://www.youtube.com/embed/tgbNymZ7vqY"
+            });
+            console.log('✓ Created default videos in MongoDB');
+        }
+        
+        // Create default payment methods
+        const paymentMethodsExist = await paymentMethodsCollection.findOne({ _id: 'methods' });
+        if (!paymentMethodsExist) {
+            await paymentMethodsCollection.insertOne({
+                _id: 'methods',
+                methods: [
+                    { name: "Easypaisa", number: "03484252348", type: "deposit" },
+                    { name: "JazzCash", number: "03059170455", type: "deposit" }
+                ]
+            });
+            console.log('✓ Created default payment methods in MongoDB');
+        }
+        
+        // Create company balance
+        const companyBalanceExist = await companyBalanceCollection.findOne({ _id: 'balance' });
+        if (!companyBalanceExist) {
+            await companyBalanceCollection.insertOne({
+                _id: 'balance',
+                totalCollected: 0,
+                totalPaid: 0,
+                totalCommissionPaid: 0,
+                balance: 0,
+                transactions: []
+            });
+            console.log('✓ Created company balance in MongoDB');
+        }
+    } catch (error) {
+        console.error('Error initializing DB:', error);
     }
 }
+
+// ===== FORCE CREATE ADMIN ENDPOINT =====
+app.get('/force-create-admin', async (req, res) => {
+    try {
+        if (!usersCollection) {
+            return res.json({ success: false, error: 'MongoDB not connected yet. Please wait.' });
+        }
+        
+        const hashedAdminPass = await bcrypt.hash(ADMIN_PASSWORD, 10);
+        const result = await usersCollection.updateOne(
+            { email: ADMIN_EMAIL },
+            { 
+                $set: {
+                    email: ADMIN_EMAIL,
+                    password: ADMIN_PASSWORD,
+                    hashedPassword: hashedAdminPass,
+                    plan: 'Plan 1',
+                    watched: [],
+                    watchedKeys: [],
+                    referral: 'ADMIN-REF',
+                    amount: 0,
+                    withdrawalRequested: false,
+                    withdrawalMessage: '',
+                    grantedVideos: true,
+                    videoAccessGrantedAt: new Date().toISOString(),
+                    uploads: [],
+                    role: 'admin',
+                    withdrawalMethod: 'Easypaisa',
+                    withdrawalAccount: '03000000000',
+                    accountHolderName: 'Admin Account',
+                    accountTitle: 'Admin Account Title',
+                    createdAt: new Date().toISOString(),
+                    totalReferralsAdded: 0,
+                    referralsWithPlan: 0,
+                    referralsWithoutPlan: 0,
+                    dailyVideosWatched: 0,
+                    referralEarnings: 0,
+                    videoEarnings: 0,
+                    referredBy: '',
+                    lastDailyReset: new Date().toISOString(),
+                    isPaid: true,
+                    paidAmount: 500
+                }
+            },
+            { upsert: true }
+        );
+        res.json({ success: true, message: 'Admin created/updated', result: result });
+    } catch (error) {
+        res.json({ success: false, error: error.message });
+    }
+});
 
 // ===== HELPER FUNCTIONS =====
 async function checkAndResetDailyCounters(user) {
@@ -252,7 +309,7 @@ async function updateCompanyBalance(amount, type, description) {
     return true;
 }
 
-// Process referral when child selects a plan (COUNT referral, NO commission yet)
+// Process referral when child selects a plan
 async function processReferralOnPlanSelection(childEmail, planName) {
     const child = await usersCollection.findOne({ email: childEmail });
     if (!child) return false;
@@ -260,14 +317,12 @@ async function processReferralOnPlanSelection(childEmail, planName) {
     const referredBy = child.referredBy;
     if (!referredBy || referredBy === '') return false;
     
-    // Check if this is the FIRST plan selection
     const hadPlanBefore = child.plan && child.plan !== '';
     if (hadPlanBefore) return false;
     
     const parent = await usersCollection.findOne({ email: referredBy });
     if (!parent) return false;
     
-    // Increment parent's referral counts
     await usersCollection.updateOne(
         { email: referredBy },
         { 
@@ -282,7 +337,7 @@ async function processReferralOnPlanSelection(childEmail, planName) {
     return true;
 }
 
-// Process referral commission when child gets video access (PAY commission)
+// Process referral commission when child gets video access
 async function processReferralCommission(childEmail, planName) {
     const child = await usersCollection.findOne({ email: childEmail });
     if (!child) return false;
@@ -296,7 +351,6 @@ async function processReferralCommission(childEmail, planName) {
     const planData = PLANS[planName];
     if (!planData) return false;
     
-    // Parent must have a plan to receive commission
     if (!parent.plan || parent.plan === '') {
         console.log(`Parent ${referredBy} has no plan, cannot receive commission`);
         return false;
@@ -360,7 +414,7 @@ app.get('/profile.html', requireLogin, (req, res) => res.sendFile(path.join(__di
 app.get('/admin.html', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, 'Public', 'admin.html')));
 app.get('/videos.html', requireLogin, (req, res) => res.sendFile(path.join(__dirname, 'Public', 'videos.html')));
 
-// SIGNUP - Only store referral, NO counting yet
+// SIGNUP
 app.post('/signup', async (req, res) => {
     try {
         const { email, password, confirmPassword, referralCode } = req.body;
@@ -652,7 +706,7 @@ app.post('/saveVideos', requireAdmin, async (req, res) => {
     }
 });
 
-// SELECT PLAN - Count referral when user selects plan (FIRST TIME ONLY)
+// SELECT PLAN
 app.post('/selectPlan', requireLogin, async (req, res) => {
     const { plan } = req.body;
     const userEmail = req.session.user;
@@ -727,7 +781,7 @@ app.post('/upload', requireLogin, upload.single('media'), async (req, res) => {
     }
 });
 
-// TOGGLE VIDEO ACCESS - This pays referral commission
+// TOGGLE VIDEO ACCESS
 app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
     const { email, grantAccess } = req.body;
     
@@ -1038,60 +1092,18 @@ app.post('/resetCompanyBalance', requireAdmin, async (req, res) => {
     }
 });
 
-// START SERVER
-// DEBUG - Force create admin account
-app.get('/force-create-admin', async (req, res) => {
-    try {
-        const hashedAdminPass = await bcrypt.hash(ADMIN_PASSWORD, 10);
-        const result = await usersCollection.updateOne(
-            { email: ADMIN_EMAIL },
-            { 
-                $set: {
-                    email: ADMIN_EMAIL,
-                    password: ADMIN_PASSWORD,
-                    hashedPassword: hashedAdminPass,
-                    plan: 'Plan 1',
-                    watched: [],
-                    watchedKeys: [],
-                    referral: 'ADMIN-REF',
-                    amount: 0,
-                    withdrawalRequested: false,
-                    withdrawalMessage: '',
-                    grantedVideos: true,
-                    videoAccessGrantedAt: new Date().toISOString(),
-                    uploads: [],
-                    role: 'admin',
-                    withdrawalMethod: 'Easypaisa',
-                    withdrawalAccount: '03000000000',
-                    accountHolderName: 'Admin Account',
-                    accountTitle: 'Admin Account Title',
-                    createdAt: new Date().toISOString(),
-                    totalReferralsAdded: 0,
-                    referralsWithPlan: 0,
-                    referralsWithoutPlan: 0,
-                    dailyVideosWatched: 0,
-                    referralEarnings: 0,
-                    videoEarnings: 0,
-                    referredBy: '',
-                    lastDailyReset: new Date().toISOString(),
-                    isPaid: true,
-                    paidAmount: 500
-                }
-            },
-            { upsert: true }
-        );
-        res.json({ success: true, message: 'Admin created/updated', result: result });
-    } catch (error) {
-        res.json({ success: false, error: error.message });
+// ===== START SERVER =====
+connectDB().then((connected) => {
+    if (connected) {
+        app.listen(PORT, () => {
+            console.log(`✅ S-CORP server running on port ${PORT}`);
+            console.log(`💰 Currency: PKR`);
+            console.log(`📊 Plans: 500, 1000, 1500 PKR`);
+            console.log(`🎬 Video Commission: 30/40/50 PKR per video`);
+            console.log(`👥 Referral Commission: 50/80/100 PKR (paid when child gets video access)`);
+            console.log(`🔐 Admin: ${ADMIN_EMAIL}`);
+        });
+    } else {
+        console.log('❌ Server started but MongoDB connection failed');
     }
-});
-connectDB().then(() => {
-    app.listen(PORT, () => {
-        console.log(`✅ S-CORP server running on port ${PORT}`);
-        console.log(`💰 Currency: PKR`);
-        console.log(`📊 Plans: 500, 1000, 1500 PKR`);
-        console.log(`🎬 Video Commission: 30/40/50 PKR per video`);
-        console.log(`👥 Referral Commission: 50/80/100 PKR (paid when child gets video access)`);
-        console.log(`🔐 Admin: ${ADMIN_EMAIL}`);
-    });
 });
