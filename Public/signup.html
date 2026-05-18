@@ -31,24 +31,6 @@
             overflow: hidden;
         }
         
-        .signup-box:before {
-            content: '';
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            background: linear-gradient(45deg, #ff4757, #ff3838, #ff0000);
-            z-index: -1;
-            border-radius: 17px;
-            animation: borderGlow 3s ease infinite;
-        }
-        
-        @keyframes borderGlow {
-            0%, 100% { opacity: 0.8; }
-            50% { opacity: 1; }
-        }
-        
         .logo {
             text-align: center;
             margin-bottom: 30px;
@@ -59,28 +41,22 @@
             font-size: 36px;
             margin-bottom: 10px;
             font-weight: bold;
-            letter-spacing: 2px;
-            text-shadow: 0 2px 10px rgba(255, 71, 87, 0.5);
         }
         
-        .logo p {
-            color: #ff4757;
-            font-size: 16px;
-            letter-spacing: 1px;
-            font-weight: 500;
-        }
+        .logo span { color: #ff4757; }
         
         .referral-info {
-            background: rgba(255, 71, 87, 0.1);
+            background: rgba(46, 204, 113, 0.2);
             padding: 12px;
             border-radius: 8px;
             margin-bottom: 20px;
             text-align: center;
-            border: 1px solid rgba(255, 71, 87, 0.3);
+            border: 1px solid #2ecc71;
+            display: none;
         }
         
         .referral-info p {
-            color: #ffa502;
+            color: #2ecc71;
             font-size: 14px;
             margin: 0;
         }
@@ -95,8 +71,6 @@
             color: white;
             font-weight: 600;
             font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }
         
         .form-group input {
@@ -107,18 +81,11 @@
             border-radius: 10px;
             font-size: 16px;
             color: white;
-            transition: all 0.3s ease;
-            font-family: inherit;
-        }
-        
-        .form-group input::placeholder {
-            color: #666;
         }
         
         .form-group input:focus {
             border-color: #ff4757;
             outline: none;
-            box-shadow: 0 0 0 3px rgba(255, 71, 87, 0.2);
         }
         
         .submit-btn {
@@ -131,21 +98,11 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
             margin-top: 10px;
-            position: relative;
-            overflow: hidden;
-            min-height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
         
         .submit-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(255, 71, 87, 0.3);
+            transform: translateY(-2px);
         }
         
         .message {
@@ -153,23 +110,20 @@
             margin-top: 20px;
             padding: 15px;
             border-radius: 10px;
-            font-weight: bold;
-            font-size: 14px;
             display: none;
-            border: 1px solid transparent;
         }
         
         .message.success {
             background: rgba(46, 204, 113, 0.1);
             color: #2ecc71;
-            border-color: #2ecc71;
+            border: 1px solid #2ecc71;
             display: block;
         }
         
         .message.error {
             background: rgba(255, 71, 87, 0.1);
             color: #ff4757;
-            border-color: #ff4757;
+            border: 1px solid #ff4757;
             display: block;
         }
         
@@ -184,13 +138,6 @@
             color: #ff4757;
             text-decoration: none;
             margin: 0 15px;
-            font-weight: 600;
-            font-size: 14px;
-            transition: color 0.3s ease;
-        }
-        
-        .links a:hover {
-            color: white;
         }
         
         .loading {
@@ -219,11 +166,11 @@
     <div class="signup-container">
         <div class="signup-box">
             <div class="logo">
-                <h1>S-CORP</h1>
+                <h1>S<span>-CORP</span></h1>
                 <p>Start Earning Today</p>
             </div>
             
-            <div id="referralInfo" class="referral-info" style="display: none;">
+            <div id="referralInfo" class="referral-info">
                 <p>🎉 You were referred by someone! Complete signup to earn bonus.</p>
             </div>
             
@@ -259,17 +206,26 @@
     </div>
 
     <script>
-        // Function to get referral code from URL
+        // Get referral code from URL
         function getReferralCodeFromURL() {
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('ref') || '';
+            const ref = urlParams.get('ref');
+            console.log('🔍 URL Search:', window.location.search);
+            console.log('🔍 Referral code detected:', ref);
+            return ref || '';
         }
         
-        // Show referral info if exists
+        // Check and show referral info
         const referralCode = getReferralCodeFromURL();
-        if (referralCode) {
+        console.log('📢 Final referral code:', referralCode);
+        
+        if (referralCode && referralCode !== '') {
             document.getElementById('referralInfo').style.display = 'block';
-            console.log('🔗 Referral code detected:', referralCode);
+            console.log('✅ Showing referral banner');
+        } else {
+            console.log('❌ No referral code found in URL');
+            console.log('   Current URL:', window.location.href);
+            console.log('   Expected format: https://.../signup.html?ref=CODE');
         }
         
         document.getElementById('signupForm').addEventListener('submit', async function(e) {
@@ -289,7 +245,9 @@
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
-            const referralCode = getReferralCodeFromURL();
+            const referralCodeFromURL = getReferralCodeFromURL();
+            
+            console.log('📝 Signup attempt:', { email, referralCodeFromURL });
             
             if (password !== confirmPassword) {
                 message.textContent = '❌ Passwords do not match';
@@ -302,18 +260,17 @@
             try {
                 const response = await fetch('/signup', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         email: email,
                         password: password,
                         confirmPassword: confirmPassword,
-                        referralCode: referralCode
+                        referralCode: referralCodeFromURL
                     })
                 });
                 
                 const result = await response.json();
+                console.log('📡 Server response:', result);
                 
                 if (result.success) {
                     message.textContent = '✅ ' + result.message + ' Your referral code: ' + result.referral;
@@ -329,11 +286,11 @@
                     btn.disabled = false;
                 }
             } catch (error) {
+                console.error('Signup error:', error);
                 message.textContent = '❌ Connection error. Please try again.';
                 message.className = 'message error';
                 btnText.textContent = originalText;
                 btn.disabled = false;
-                console.error('Signup error:', error);
             }
         });
         
