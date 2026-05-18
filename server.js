@@ -5,6 +5,7 @@ const fs = require('fs');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const multer = require('multer');
+const { MongoClient } = require('mongodb');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,19 +51,22 @@ const PLANS = {
     }
 };
 
-// ===== FILE PATHS =====
-const DATA_DIR = path.join(__dirname, 'Data');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const VIDEOS_FILE = path.join(DATA_DIR, 'videoAccess.json');
-const PAYMENT_METHODS_FILE = path.join(DATA_DIR, 'paymentMethods.json');
-const COMPANY_BALANCE_FILE = path.join(DATA_DIR, 'companyBalance.json');
-const UPLOADS_DIR = path.join(__dirname, 'Uploads');
+// ===== MONGODB CONNECTION =====
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://s-corp-user:S-Corp@2026Secure@cluster0.rjxsj7i.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+const DB_NAME = 's-corp';
 
-// ===== PERMANENT ADMIN - NOW READS FROM ENVIRONMENT VARIABLES =====
+let db;
+let usersCollection;
+let videosCollection;
+let paymentMethodsCollection;
+let companyBalanceCollection;
+
+// ===== PERMANENT ADMIN =====
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@site.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@123';
 
-// ===== MULTER SETUP =====
+// ===== MULTER SETUP FOR UPLOADS =====
+const UPLOADS_DIR = path.join(__dirname, 'Uploads');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         if (!fs.existsSync(UPLOADS_DIR)) {
@@ -91,33 +95,33 @@ const upload = multer({
     }
 });
 
-// ===== INITIALIZE =====
-async function initialize() {
-    console.log('Initializing S-CORP Server...');
-    console.log(`Admin Email: ${ADMIN_EMAIL}`);
-    console.log(`Admin Password: [HIDDEN]`);
-    
-    [DATA_DIR, UPLOADS_DIR].forEach(dir => {
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-            console.log(`✓ Created ${path.basename(dir)}/`);
-        }
-    });
-
-    let users = [];
-    if (fs.existsSync(USERS_FILE)) {
-        try {
-            users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-            console.log(`✓ Loaded ${users.length} existing users`);
-        } catch (e) {
-            users = [];
-        }
+// ===== CONNECT TO MONGODB =====
+async function connectDB() {
+    try {
+        const client = new MongoClient(MONGODB_URI);
+        await client.connect();
+        db = client.db(DB_NAME);
+        usersCollection = db.collection('users');
+        videosCollection = db.collection('videos');
+        paymentMethodsCollection = db.collection('paymentmethods');
+        companyBalanceCollection = db.collection('companybalance');
+        
+        console.log('✅ Connected to MongoDB');
+        await initializeDB();
+        return true;
+    } catch (error) {
+        console.error('❌ MongoDB connection error:', error);
+        return false;
     }
+}
 
-    const adminExists = users.some(u => u.email === ADMIN_EMAIL);
+// ===== INITIALIZE DATABASE =====
+async function initializeDB() {
+    // Create admin if not exists
+    const adminExists = await usersCollection.findOne({ email: ADMIN_EMAIL });
     if (!adminExists) {
         const hashedAdminPass = await bcrypt.hash(ADMIN_PASSWORD, 10);
-        users.push({
+        await usersCollection.insertOne({
             email: ADMIN_EMAIL,
             password: ADMIN_PASSWORD,
             hashedPassword: hashedAdminPass,
@@ -148,67 +152,53 @@ async function initialize() {
             isPaid: true,
             paidAmount: 500
         });
-        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-        console.log('✓ Created permanent admin account');
+        console.log('✓ Created admin account');
     }
-
-    if (!fs.existsSync(COMPANY_BALANCE_FILE)) {
-        const defaultCompanyBalance = {
-            totalCollected: 0,
-            totalPaid: 0,
-            totalCommissionPaid: 0,
-            balance: 0,
-            transactions: []
-        };
-        fs.writeFileSync(COMPANY_BALANCE_FILE, JSON.stringify(defaultCompanyBalance, null, 2));
-        console.log('✓ Created company balance file');
-    }
-
-    if (!fs.existsSync(PAYMENT_METHODS_FILE)) {
-        const defaultPaymentMethods = {
-            methods: [
-                { name: "Easypaisa", number: "03484252348", type: "deposit" },
-                { name: "JazzCash", number: "03059170455", type: "deposit" }
-            ]
-        };
-        fs.writeFileSync(PAYMENT_METHODS_FILE, JSON.stringify(defaultPaymentMethods, null, 2));
-        console.log('✓ Created payment methods file');
-    }
-
-    if (!fs.existsSync(VIDEOS_FILE)) {
-        const defaultVideos = {
+    
+    // Create default videos
+    const videosExist = await videosCollection.findOne({ _id: 'videos' });
+    if (!videosExist) {
+        await videosCollection.insertOne({
+            _id: 'videos',
             v1: "https://www.youtube.com/embed/dQw4w9WgXcQ",
             v2: "https://www.youtube.com/embed/3JZ_D3ELwOQ",
             v3: "https://www.youtube.com/embed/kJQP7kiw5Fk",
             v4: "https://www.youtube.com/embed/9bZkp7q19f0",
             v5: "https://www.youtube.com/embed/tgbNymZ7vqY"
-        };
-        fs.writeFileSync(VIDEOS_FILE, JSON.stringify(defaultVideos, null, 2));
-        console.log('✓ Created videos file');
+        });
+        console.log('✓ Created default videos');
     }
     
-    console.log('✓ Server initialization complete!');
-}
-
-function readJSON(file) {
-    try {
-        return JSON.parse(fs.readFileSync(file, 'utf8'));
-    } catch (e) {
-        return null;
+    // Create default payment methods
+    const paymentMethodsExist = await paymentMethodsCollection.findOne({ _id: 'methods' });
+    if (!paymentMethodsExist) {
+        await paymentMethodsCollection.insertOne({
+            _id: 'methods',
+            methods: [
+                { name: "Easypaisa", number: "03484252348", type: "deposit" },
+                { name: "JazzCash", number: "03059170455", type: "deposit" }
+            ]
+        });
+        console.log('✓ Created default payment methods');
+    }
+    
+    // Create company balance
+    const companyBalanceExist = await companyBalanceCollection.findOne({ _id: 'balance' });
+    if (!companyBalanceExist) {
+        await companyBalanceCollection.insertOne({
+            _id: 'balance',
+            totalCollected: 0,
+            totalPaid: 0,
+            totalCommissionPaid: 0,
+            balance: 0,
+            transactions: []
+        });
+        console.log('✓ Created company balance');
     }
 }
 
-function writeJSON(file, data) {
-    try {
-        fs.writeFileSync(file, JSON.stringify(data, null, 2));
-        return true;
-    } catch (e) {
-        console.error(`Error writing ${file}:`, e);
-        return false;
-    }
-}
-
-function checkAndResetDailyCounters(user) {
+// ===== HELPER FUNCTIONS =====
+async function checkAndResetDailyCounters(user) {
     const now = new Date();
     const lastReset = user.lastDailyReset ? new Date(user.lastDailyReset) : new Date(0);
     
@@ -218,92 +208,124 @@ function checkAndResetDailyCounters(user) {
     today.setHours(0, 0, 0, 0);
     
     if (resetDate.getTime() < today.getTime()) {
-        user.dailyVideosWatched = 0;
-        user.watched = [];
-        user.watchedKeys = [];
-        user.lastDailyReset = now.toISOString();
+        await usersCollection.updateOne(
+            { email: user.email },
+            { $set: { dailyVideosWatched: 0, watched: [], watchedKeys: [], lastDailyReset: now.toISOString() } }
+        );
         return true;
     }
     return false;
 }
 
-function updateCompanyBalance(amount, type, description) {
-    try {
-        const company = readJSON(COMPANY_BALANCE_FILE) || {
-            totalCollected: 0,
-            totalPaid: 0,
-            totalCommissionPaid: 0,
-            balance: 0,
-            transactions: []
-        };
-        
-        if (type === 'collected') {
-            company.totalCollected += amount;
-            company.balance += amount;
-        } else if (type === 'paid') {
-            company.totalPaid += amount;
-            company.balance -= amount;
-        } else if (type === 'commission') {
-            company.totalCommissionPaid += amount;
-            company.balance -= amount;
-        }
-        
-        company.transactions.push({
-            amount,
-            type,
-            description,
-            timestamp: new Date().toISOString()
-        });
-        
-        writeJSON(COMPANY_BALANCE_FILE, company);
-        return true;
-    } catch (e) {
-        console.error('Error updating company balance:', e);
-        return false;
+async function updateCompanyBalance(amount, type, description) {
+    const company = await companyBalanceCollection.findOne({ _id: 'balance' }) || {
+        totalCollected: 0,
+        totalPaid: 0,
+        totalCommissionPaid: 0,
+        balance: 0,
+        transactions: []
+    };
+    
+    if (type === 'collected') {
+        company.totalCollected += amount;
+        company.balance += amount;
+    } else if (type === 'paid') {
+        company.totalPaid += amount;
+        company.balance -= amount;
+    } else if (type === 'commission') {
+        company.totalCommissionPaid += amount;
+        company.balance -= amount;
     }
+    
+    company.transactions.push({
+        amount,
+        type,
+        description,
+        timestamp: new Date().toISOString()
+    });
+    
+    await companyBalanceCollection.updateOne(
+        { _id: 'balance' },
+        { $set: company },
+        { upsert: true }
+    );
+    return true;
 }
 
-async function processReferralCommission(childEmail, planName) {
-    let users = readJSON(USERS_FILE) || [];
-    const childIndex = users.findIndex(u => u.email === childEmail);
+// Process referral when child selects a plan (COUNT referral, NO commission yet)
+async function processReferralOnPlanSelection(childEmail, planName) {
+    const child = await usersCollection.findOne({ email: childEmail });
+    if (!child) return false;
     
-    if (childIndex === -1) return false;
-    
-    const child = users[childIndex];
     const referredBy = child.referredBy;
+    if (!referredBy || referredBy === '') return false;
     
-    if (!referredBy) return false;
+    // Check if this is the FIRST plan selection (hadPlanBefore is false)
+    const hadPlanBefore = child.plan && child.plan !== '';
+    if (hadPlanBefore) return false; // Already counted before
     
-    const parentIndex = users.findIndex(u => u.email === referredBy);
-    if (parentIndex === -1) return false;
+    const parent = await usersCollection.findOne({ email: referredBy });
+    if (!parent) return false;
     
-    const parent = users[parentIndex];
+    // Increment parent's referral counts
+    await usersCollection.updateOne(
+        { email: referredBy },
+        { 
+            $inc: { 
+                totalReferralsAdded: 1,
+                referralsWithoutPlan: 1
+            }
+        }
+    );
+    
+    console.log(`📊 Referral counted: ${referredBy} referred ${childEmail} (plan selected: ${planName})`);
+    return true;
+}
+
+// Process referral commission when child gets video access (PAY commission)
+async function processReferralCommission(childEmail, planName) {
+    const child = await usersCollection.findOne({ email: childEmail });
+    if (!child) return false;
+    
+    const referredBy = child.referredBy;
+    if (!referredBy || referredBy === '') return false;
+    
+    const parent = await usersCollection.findOne({ email: referredBy });
+    if (!parent) return false;
+    
     const planData = PLANS[planName];
-    
     if (!planData) return false;
     
+    // Parent must have a plan to receive commission
     if (!parent.plan || parent.plan === '') {
         console.log(`Parent ${referredBy} has no plan, cannot receive commission`);
         return false;
     }
     
     const commission = planData.referralCommission;
-    const currentParentBalance = parseFloat(parent.amount) || 0;
+    const currentParentBalance = parent.amount || 0;
     
-    users[parentIndex].amount = (currentParentBalance + commission).toFixed(2);
-    users[parentIndex].referralEarnings = (parent.referralEarnings || 0) + commission;
-    users[parentIndex].referralsWithPlan = (parent.referralsWithPlan || 0) + 1;
+    await usersCollection.updateOne(
+        { email: referredBy },
+        { 
+            $inc: { 
+                amount: commission,
+                referralEarnings: commission
+            },
+            $inc: { 
+                referralsWithPlan: 1,
+                referralsWithoutPlan: -1
+            }
+        }
+    );
     
-    updateCompanyBalance(commission, 'commission', `Referral commission paid to ${referredBy} for referring ${childEmail} (${planName})`);
-    
-    writeJSON(USERS_FILE, users);
+    await updateCompanyBalance(commission, 'commission', `Referral commission paid to ${referredBy} for referring ${childEmail} (${planName})`);
     
     console.log(`💰 Referral Commission: ${referredBy} earned ${commission} PKR for referring ${childEmail} (${planName})`);
     return true;
 }
 
-initialize();
-
+// ===== MIDDLEWARE =====
 function requireLogin(req, res, next) {
     if (!req.session.user) {
         if (req.xhr || req.headers.accept?.includes('json')) {
@@ -333,7 +355,7 @@ app.get('/profile.html', requireLogin, (req, res) => res.sendFile(path.join(__di
 app.get('/admin.html', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, 'Public', 'admin.html')));
 app.get('/videos.html', requireLogin, (req, res) => res.sendFile(path.join(__dirname, 'Public', 'videos.html')));
 
-// SIGNUP
+// SIGNUP - Only store referral, NO counting yet
 app.post('/signup', async (req, res) => {
     try {
         const { email, password, confirmPassword, referralCode } = req.body;
@@ -350,8 +372,8 @@ app.post('/signup', async (req, res) => {
             return res.json({ success: false, message: 'Admin email reserved' });
         }
 
-        let users = readJSON(USERS_FILE) || [];
-        if (users.find(u => u.email === email)) {
+        const existingUser = await usersCollection.findOne({ email });
+        if (existingUser) {
             return res.json({ success: false, message: 'Email already exists' });
         }
 
@@ -359,18 +381,11 @@ app.post('/signup', async (req, res) => {
         const referral = `${email.split('@')[0]}-${Date.now().toString().slice(-6)}`;
         
         let referredBy = '';
-        let parentUser = null;
-        
         if (referralCode) {
-            parentUser = users.find(u => u.referral === referralCode);
-            if (parentUser) {
-                referredBy = parentUser.email;
-                const parentIndex = users.findIndex(u => u.email === parentUser.email);
-                if (parentIndex !== -1) {
-                    users[parentIndex].totalReferralsAdded = (users[parentIndex].totalReferralsAdded || 0) + 1;
-                    users[parentIndex].referralsWithoutPlan = (users[parentIndex].referralsWithoutPlan || 0) + 1;
-                    writeJSON(USERS_FILE, users);
-                }
+            const referringUser = await usersCollection.findOne({ referral: referralCode });
+            if (referringUser) {
+                referredBy = referringUser.email;
+                console.log(`🔗 User ${email} signed up with referral from ${referredBy} (awaiting plan selection)`);
             }
         }
         
@@ -406,8 +421,7 @@ app.post('/signup', async (req, res) => {
             paidAmount: 0
         };
         
-        users.push(newUser);
-        writeJSON(USERS_FILE, users);
+        await usersCollection.insertOne(newUser);
         
         res.json({ success: true, message: 'Account created successfully!', referral: referral });
     } catch (e) {
@@ -425,8 +439,7 @@ app.post('/login', async (req, res) => {
             return res.json({ success: false, message: 'Email and password required' });
         }
         
-        const users = readJSON(USERS_FILE) || [];
-        const user = users.find(u => u.email === email);
+        const user = await usersCollection.findOne({ email });
         
         if (!user) return res.json({ success: false, message: 'User not found' });
         
@@ -450,81 +463,85 @@ app.get('/logout', (req, res) => {
 });
 
 // PROFILE DATA
-app.get('/profileData', requireLogin, (req, res) => {
-    const users = readJSON(USERS_FILE) || [];
-    const user = users.find(u => u.email === req.session.user);
-    
-    if (!user) {
-        req.session.destroy();
-        return res.status(404).json({ message: 'User not found' });
-    }
-    
-    checkAndResetDailyCounters(user);
-    
-    const allVideos = readJSON(VIDEOS_FILE) || {};
-    const planData = user.plan ? PLANS[user.plan] : null;
-    
-    let grantedVideos = [];
-    
-    if (user.grantedVideos === true && planData) {
-        const videoKeys = Object.keys(allVideos);
-        const videoCount = Math.min(planData.dailyVideos, videoKeys.length);
-        const assignedKeys = videoKeys.slice(0, videoCount);
+app.get('/profileData', requireLogin, async (req, res) => {
+    try {
+        let user = await usersCollection.findOne({ email: req.session.user });
         
-        grantedVideos = assignedKeys.map(key => ({
-            key: key,
-            url: allVideos[key],
-            isWatched: (user.watchedKeys && user.watchedKeys.includes(key)) || false
-        })).filter(v => v.url && v.url.trim() !== '');
+        if (!user) {
+            req.session.destroy();
+            return res.status(404).json({ message: 'User not found' });
+        }
+        
+        await checkAndResetDailyCounters(user);
+        user = await usersCollection.findOne({ email: req.session.user });
+        
+        const videosDoc = await videosCollection.findOne({ _id: 'videos' });
+        const allVideos = videosDoc || {};
+        const planData = user.plan ? PLANS[user.plan] : null;
+        
+        let grantedVideos = [];
+        if (user.grantedVideos === true && planData) {
+            const videoKeys = ['v1', 'v2', 'v3', 'v4', 'v5'].filter(key => allVideos[key]);
+            const videoCount = Math.min(planData.dailyVideos, videoKeys.length);
+            const assignedKeys = videoKeys.slice(0, videoCount);
+            
+            grantedVideos = assignedKeys.map(key => ({
+                key: key,
+                url: allVideos[key],
+                isWatched: (user.watchedKeys && user.watchedKeys.includes(key)) || false
+            })).filter(v => v.url && v.url.trim() !== '');
+        }
+        
+        const response = {
+            email: user.email,
+            plan: user.plan || '',
+            referral: user.referral || '',
+            amount: (user.amount || 0).toFixed(2),
+            withdrawalLimit: planData ? planData.withdrawalLimit : 0,
+            videos: grantedVideos,
+            isAdmin: req.session.user === ADMIN_EMAIL,
+            uploads: user.uploads || [],
+            totalReferralsAdded: user.totalReferralsAdded || 0,
+            referralsWithPlan: user.referralsWithPlan || 0,
+            referralsWithoutPlan: user.referralsWithoutPlan || 0,
+            dailyVideosWatched: user.dailyVideosWatched || 0,
+            dailyVideoLimit: planData ? planData.dailyVideos : 0,
+            planPrice: planData ? planData.price : 0,
+            withdrawalRequested: user.withdrawalRequested || false,
+            withdrawalMessage: user.withdrawalMessage || '',
+            withdrawalMethod: user.withdrawalMethod || '',
+            withdrawalAccount: user.withdrawalAccount || '',
+            accountHolderName: user.accountHolderName || '',
+            accountTitle: user.accountTitle || '',
+            videoEarnings: user.videoEarnings || 0,
+            referralEarnings: user.referralEarnings || 0,
+            referredBy: user.referredBy || '',
+            createdAt: user.createdAt || new Date().toISOString(),
+            isPaid: user.isPaid || false,
+            grantedVideos: user.grantedVideos || false,
+            videoCommission: planData ? planData.videoCommission : 0,
+            watchedKeys: user.watchedKeys || []
+        };
+        
+        res.json(response);
+    } catch (e) {
+        console.error('Profile data error:', e);
+        res.status(500).json({ message: 'Server error' });
     }
-    
-    const response = {
-        email: user.email,
-        plan: user.plan || '',
-        referral: user.referral || '',
-        amount: parseFloat(user.amount || 0).toFixed(2),
-        withdrawalLimit: planData ? planData.withdrawalLimit : 0,
-        videos: grantedVideos,
-        isAdmin: req.session.user === ADMIN_EMAIL,
-        uploads: user.uploads || [],
-        totalReferralsAdded: user.totalReferralsAdded || 0,
-        referralsWithPlan: user.referralsWithPlan || 0,
-        referralsWithoutPlan: user.referralsWithoutPlan || 0,
-        dailyVideosWatched: user.dailyVideosWatched || 0,
-        dailyVideoLimit: planData ? planData.dailyVideos : 0,
-        planPrice: planData ? planData.price : 0,
-        withdrawalRequested: user.withdrawalRequested || false,
-        withdrawalMessage: user.withdrawalMessage || '',
-        withdrawalMethod: user.withdrawalMethod || '',
-        withdrawalAccount: user.withdrawalAccount || '',
-        accountHolderName: user.accountHolderName || '',
-        accountTitle: user.accountTitle || '',
-        videoEarnings: user.videoEarnings || 0,
-        referralEarnings: user.referralEarnings || 0,
-        referredBy: user.referredBy || '',
-        createdAt: user.createdAt || new Date().toISOString(),
-        isPaid: user.isPaid || false,
-        grantedVideos: user.grantedVideos || false,
-        videoCommission: planData ? planData.videoCommission : 0,
-        watchedKeys: user.watchedKeys || []
-    };
-    
-    writeJSON(USERS_FILE, users);
-    res.json(response);
 });
 
 // GET DEPOSIT METHODS
-app.get('/getDepositMethods', (req, res) => {
+app.get('/getDepositMethods', async (req, res) => {
     try {
-        const methods = readJSON(PAYMENT_METHODS_FILE) || { methods: [] };
-        res.json(methods.methods);
+        const methodsDoc = await paymentMethodsCollection.findOne({ _id: 'methods' });
+        res.json(methodsDoc?.methods || []);
     } catch (e) {
         res.json([]);
     }
 });
 
 // SAVE DEPOSIT METHODS
-app.post('/saveDepositMethods', requireAdmin, (req, res) => {
+app.post('/saveDepositMethods', requireAdmin, async (req, res) => {
     const { methods } = req.body;
     
     if (!Array.isArray(methods)) {
@@ -536,16 +553,19 @@ app.post('/saveDepositMethods', requireAdmin, (req, res) => {
         type: 'deposit'
     }));
     
-    const paymentMethods = { methods: methodsWithType };
-    writeJSON(PAYMENT_METHODS_FILE, paymentMethods);
+    await paymentMethodsCollection.updateOne(
+        { _id: 'methods' },
+        { $set: { methods: methodsWithType } },
+        { upsert: true }
+    );
     
     res.json({ success: true, message: `Updated ${methods.length} deposit methods` });
 });
 
 // GET COMPANY BALANCE
-app.get('/getCompanyBalance', requireAdmin, (req, res) => {
+app.get('/getCompanyBalance', requireAdmin, async (req, res) => {
     try {
-        const company = readJSON(COMPANY_BALANCE_FILE) || {
+        const company = await companyBalanceCollection.findOne({ _id: 'balance' }) || {
             totalCollected: 0,
             totalPaid: 0,
             totalCommissionPaid: 0,
@@ -564,89 +584,121 @@ app.get('/getCompanyBalance', requireAdmin, (req, res) => {
 });
 
 // GET USERS
-app.get('/getUsers', requireAdmin, (req, res) => {
-    const users = readJSON(USERS_FILE) || [];
-    
-    const usersWithStats = users.map(user => {
-        const planData = user.plan ? PLANS[user.plan] : null;
+app.get('/getUsers', requireAdmin, async (req, res) => {
+    try {
+        const users = await usersCollection.find({}).toArray();
         
-        return {
-            email: user.email,
-            plan: user.plan || '',
-            amount: parseFloat(user.amount || 0).toFixed(2),
-            withdrawalLimit: planData ? planData.withdrawalLimit : 0,
-            totalReferralsAdded: user.totalReferralsAdded || 0,
-            referralsWithPlan: user.referralsWithPlan || 0,
-            referralsWithoutPlan: user.referralsWithoutPlan || 0,
-            referralEarnings: user.referralEarnings || 0,
-            uploads: user.uploads || [],
-            grantedVideos: user.grantedVideos || false,
-            isPaid: user.isPaid || false,
-            withdrawalRequested: user.withdrawalRequested || false,
-            withdrawalMessage: user.withdrawalMessage || '',
-            withdrawalMethod: user.withdrawalMethod || '',
-            withdrawalAccount: user.withdrawalAccount || '',
-            accountHolderName: user.accountHolderName || '',
-            accountTitle: user.accountTitle || '',
-            role: user.role || 'user',
-            createdAt: user.createdAt,
-            watchedKeys: user.watchedKeys || [],
-            referredBy: user.referredBy || ''
-        };
-    });
-    
-    res.json(usersWithStats);
+        const usersWithStats = users.map(user => {
+            const planData = user.plan ? PLANS[user.plan] : null;
+            
+            return {
+                email: user.email,
+                plan: user.plan || '',
+                amount: (user.amount || 0).toFixed(2),
+                withdrawalLimit: planData ? planData.withdrawalLimit : 0,
+                totalReferralsAdded: user.totalReferralsAdded || 0,
+                referralsWithPlan: user.referralsWithPlan || 0,
+                referralsWithoutPlan: user.referralsWithoutPlan || 0,
+                referralEarnings: user.referralEarnings || 0,
+                uploads: user.uploads || [],
+                grantedVideos: user.grantedVideos || false,
+                isPaid: user.isPaid || false,
+                withdrawalRequested: user.withdrawalRequested || false,
+                withdrawalMessage: user.withdrawalMessage || '',
+                withdrawalMethod: user.withdrawalMethod || '',
+                withdrawalAccount: user.withdrawalAccount || '',
+                accountHolderName: user.accountHolderName || '',
+                accountTitle: user.accountTitle || '',
+                role: user.role || 'user',
+                createdAt: user.createdAt,
+                referredBy: user.referredBy || ''
+            };
+        });
+        
+        res.json(usersWithStats);
+    } catch (e) {
+        res.json([]);
+    }
 });
 
 // GET VIDEOS
-app.get('/getVideos', (req, res) => {
-    res.json(readJSON(VIDEOS_FILE) || {});
+app.get('/getVideos', async (req, res) => {
+    try {
+        const videosDoc = await videosCollection.findOne({ _id: 'videos' });
+        const { _id, ...videos } = videosDoc || {};
+        res.json(videos || {});
+    } catch (e) {
+        res.json({});
+    }
 });
 
 // SAVE VIDEOS
-app.post('/saveVideos', requireAdmin, (req, res) => {
-    writeJSON(VIDEOS_FILE, req.body);
-    console.log('✅ Videos saved');
-    res.json({ success: true, message: 'Videos saved!' });
+app.post('/saveVideos', requireAdmin, async (req, res) => {
+    try {
+        await videosCollection.updateOne(
+            { _id: 'videos' },
+            { $set: req.body },
+            { upsert: true }
+        );
+        console.log('✅ Videos saved');
+        res.json({ success: true, message: 'Videos saved!' });
+    } catch (e) {
+        res.json({ success: false, message: 'Error saving videos' });
+    }
 });
 
-// SELECT PLAN
-app.post('/selectPlan', requireLogin, (req, res) => {
+// SELECT PLAN - Count referral when user selects a plan (FIRST TIME ONLY)
+app.post('/selectPlan', requireLogin, async (req, res) => {
     const { plan } = req.body;
+    const userEmail = req.session.user;
     
     if (!plan || !PLANS[plan]) {
         return res.json({ success: false, message: 'Invalid plan selected' });
     }
     
-    let users = readJSON(USERS_FILE) || [];
-    const userIndex = users.findIndex(u => u.email === req.session.user);
-    
-    if (userIndex === -1) return res.json({ success: false, message: 'User not found' });
-    
-    users[userIndex].plan = plan;
-    users[userIndex].grantedVideos = false;
-    users[userIndex].isPaid = false;
-    
-    writeJSON(USERS_FILE, users);
-    
-    res.json({ 
-        success: true, 
-        message: `Plan updated to ${plan}! Please deposit ${PLANS[plan].price} PKR and upload payment proof.`,
-        planPrice: PLANS[plan].price
-    });
+    try {
+        const user = await usersCollection.findOne({ email: userEmail });
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
+        }
+        
+        // Check if this is the FIRST plan selection
+        const hadPlanBefore = user.plan && user.plan !== '';
+        const hasReferrer = user.referredBy && user.referredBy !== '';
+        
+        // Update user's plan
+        await usersCollection.updateOne(
+            { email: userEmail },
+            { $set: { plan: plan, grantedVideos: false, isPaid: false } }
+        );
+        
+        // ONLY count referral if:
+        // 1. User has a referrer
+        // 2. User did NOT have a plan before (first time selecting a plan)
+        if (hasReferrer && !hadPlanBefore) {
+            await processReferralOnPlanSelection(userEmail, plan);
+        }
+        
+        res.json({ 
+            success: true, 
+            message: `Plan updated to ${plan}! Please deposit ${PLANS[plan].price} PKR and upload payment proof.`,
+            planPrice: PLANS[plan].price
+        });
+    } catch (error) {
+        console.error('Plan selection error:', error);
+        res.json({ success: false, message: 'Server error' });
+    }
 });
 
 // UPLOAD PAYMENT PROOF
-app.post('/upload', requireLogin, upload.single('media'), (req, res) => {
+app.post('/upload', requireLogin, upload.single('media'), async (req, res) => {
     try {
         if (!req.file) {
             return res.json({ success: false, message: 'No file uploaded' });
         }
         
-        let users = readJSON(USERS_FILE) || [];
-        const userIndex = users.findIndex(u => u.email === req.session.user);
-        
-        if (userIndex === -1) return res.json({ success: false, message: 'User not found' });
+        const user = await usersCollection.findOne({ email: req.session.user });
+        if (!user) return res.json({ success: false, message: 'User not found' });
         
         const fileInfo = {
             filename: req.file.filename,
@@ -659,12 +711,13 @@ app.post('/upload', requireLogin, upload.single('media'), (req, res) => {
             type: 'payment_proof'
         };
         
-        if (!users[userIndex].uploads) {
-            users[userIndex].uploads = [];
-        }
+        const uploads = user.uploads || [];
+        uploads.push(fileInfo);
         
-        users[userIndex].uploads.push(fileInfo);
-        writeJSON(USERS_FILE, users);
+        await usersCollection.updateOne(
+            { email: req.session.user },
+            { $set: { uploads: uploads } }
+        );
         
         res.json({ success: true, message: 'Payment proof uploaded! Waiting for admin approval.' });
         
@@ -674,194 +727,223 @@ app.post('/upload', requireLogin, upload.single('media'), (req, res) => {
     }
 });
 
-// TOGGLE VIDEO ACCESS
+// TOGGLE VIDEO ACCESS - This pays referral commission
 app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
     const { email, grantAccess } = req.body;
     
     if (!email) return res.json({ success: false, message: 'Email required' });
     
-    let users = readJSON(USERS_FILE) || [];
-    const userIndex = users.findIndex(u => u.email === email);
-    
-    if (userIndex === -1) return res.json({ success: false, message: 'User not found' });
-    
-    const user = users[userIndex];
-    const planData = PLANS[user.plan];
-    
-    if (!planData && grantAccess) {
-        return res.json({ success: false, message: 'User has no plan selected. Cannot grant access.' });
+    try {
+        const user = await usersCollection.findOne({ email });
+        if (!user) return res.json({ success: false, message: 'User not found' });
+        
+        const planData = PLANS[user.plan];
+        if (!planData && grantAccess) {
+            return res.json({ success: false, message: 'User has no plan selected. Cannot grant access.' });
+        }
+        
+        const userPlan = user.plan;
+        const wasGranted = user.grantedVideos;
+        
+        await usersCollection.updateOne(
+            { email },
+            { 
+                $set: { 
+                    grantedVideos: grantAccess === true,
+                    isPaid: grantAccess === true,
+                    videoAccessGrantedAt: grantAccess ? new Date().toISOString() : null,
+                    paidAmount: grantAccess && planData ? planData.price : 0
+                }
+            }
+        );
+        
+        if (grantAccess && !wasGranted) {
+            // Add to company collected balance
+            await updateCompanyBalance(planData.price, 'collected', `Payment from ${email} for ${user.plan}`);
+            
+            // Process referral commission (THIS IS WHERE PARENT GETS PAID)
+            await processReferralCommission(email, userPlan);
+            
+            console.log(`✅ GRANTED video access to ${email} for plan ${user.plan}`);
+        } else if (!grantAccess) {
+            console.log(`❌ REVOKED video access from ${email}`);
+        }
+        
+        res.json({ 
+            success: true, 
+            message: grantAccess ? `Video access GRANTED to ${email}` : `Video access REVOKED from ${email}`,
+            grantedVideos: grantAccess
+        });
+    } catch (error) {
+        console.error('Toggle error:', error);
+        res.json({ success: false, message: 'Server error' });
     }
-    
-    const userPlan = user.plan;
-    
-    users[userIndex].grantedVideos = grantAccess === true;
-    users[userIndex].isPaid = grantAccess === true;
-    
-    if (grantAccess) {
-        users[userIndex].videoAccessGrantedAt = new Date().toISOString();
-        users[userIndex].paidAmount = planData ? planData.price : 0;
-        
-        updateCompanyBalance(planData.price, 'collected', `Payment from ${email} for ${user.plan}`);
-        
-        await processReferralCommission(email, userPlan);
-        
-        console.log(`✅ GRANTED video access to ${email} for plan ${user.plan}`);
-    } else {
-        users[userIndex].videoAccessGrantedAt = null;
-        console.log(`❌ REVOKED video access from ${email}`);
-    }
-    
-    writeJSON(USERS_FILE, users);
-    
-    res.json({ 
-        success: true, 
-        message: grantAccess ? `Video access GRANTED to ${email}` : `Video access REVOKED from ${email}`,
-        grantedVideos: grantAccess
-    });
 });
 
 // PROCESS WITHDRAWAL
-app.post('/processWithdrawal', requireAdmin, (req, res) => {
+app.post('/processWithdrawal', requireAdmin, async (req, res) => {
     const { email } = req.body;
     
     if (!email) return res.json({ success: false, message: 'Email required' });
     
-    let users = readJSON(USERS_FILE) || [];
-    const userIndex = users.findIndex(u => u.email === email);
-    
-    if (userIndex === -1) return res.json({ success: false, message: 'User not found' });
-    
-    const user = users[userIndex];
-    const planData = PLANS[user.plan];
-    
-    if (!planData) {
-        return res.json({ success: false, message: 'User has no plan' });
+    try {
+        const user = await usersCollection.findOne({ email });
+        if (!user) return res.json({ success: false, message: 'User not found' });
+        
+        const planData = PLANS[user.plan];
+        if (!planData) {
+            return res.json({ success: false, message: 'User has no plan' });
+        }
+        
+        if (!user.withdrawalRequested) {
+            return res.json({ success: false, message: 'No pending withdrawal request' });
+        }
+        
+        const withdrawalAmount = planData.withdrawalLimit;
+        const currentUserBalance = user.amount || 0;
+        
+        if (currentUserBalance < withdrawalAmount) {
+            return res.json({ success: false, message: `Insufficient balance: ${currentUserBalance} < ${withdrawalAmount}` });
+        }
+        
+        const newUserBalance = currentUserBalance - withdrawalAmount;
+        
+        await usersCollection.updateOne(
+            { email },
+            { 
+                $set: { 
+                    amount: newUserBalance.toFixed(2),
+                    withdrawalRequested: false,
+                    withdrawalMessage: `PAID - ${withdrawalAmount} PKR paid on ${new Date().toLocaleString()}`
+                }
+            }
+        );
+        
+        await updateCompanyBalance(withdrawalAmount, 'paid', `Withdrawal paid to ${email}`);
+        
+        console.log(`💰 Withdrawal processed: ${email} | Amount: ${withdrawalAmount} PKR | New balance: ${newUserBalance.toFixed(2)}`);
+        
+        res.json({ 
+            success: true, 
+            message: `Withdrawal of ${withdrawalAmount} PKR processed for ${email}`,
+            newBalance: newUserBalance.toFixed(2)
+        });
+    } catch (error) {
+        console.error('Withdrawal error:', error);
+        res.json({ success: false, message: 'Server error' });
     }
-    
-    if (!user.withdrawalRequested) {
-        return res.json({ success: false, message: 'No pending withdrawal request' });
-    }
-    
-    const withdrawalAmount = planData.withdrawalLimit;
-    const currentUserBalance = parseFloat(user.amount) || 0;
-    
-    if (currentUserBalance < withdrawalAmount) {
-        return res.json({ success: false, message: `Insufficient balance: ${currentUserBalance} < ${withdrawalAmount}` });
-    }
-    
-    const newUserBalance = currentUserBalance - withdrawalAmount;
-    users[userIndex].amount = newUserBalance.toFixed(2);
-    users[userIndex].withdrawalRequested = false;
-    users[userIndex].withdrawalMessage = `PAID - ${withdrawalAmount} PKR paid on ${new Date().toLocaleString()}`;
-    
-    updateCompanyBalance(withdrawalAmount, 'paid', `Withdrawal paid to ${email}`);
-    
-    writeJSON(USERS_FILE, users);
-    
-    console.log(`💰 Withdrawal processed: ${email} | Amount: ${withdrawalAmount} PKR | New balance: ${newUserBalance.toFixed(2)}`);
-    
-    res.json({ 
-        success: true, 
-        message: `Withdrawal of ${withdrawalAmount} PKR processed for ${email}`,
-        newBalance: newUserBalance.toFixed(2)
-    });
 });
 
 // MARK VIDEO AS WATCHED
-app.post('/markVideoWatched', requireLogin, (req, res) => {
+app.post('/markVideoWatched', requireLogin, async (req, res) => {
     const { videoKey, videoUrl } = req.body;
+    const userEmail = req.session.user;
     
-    let users = readJSON(USERS_FILE) || [];
-    const userIndex = users.findIndex(u => u.email === req.session.user);
-    
-    if (userIndex === -1) return res.json({ success: false, message: 'User not found' });
-    
-    const user = users[userIndex];
-    
-    checkAndResetDailyCounters(user);
-    
-    if (!user.plan || user.plan === '') {
-        return res.json({ success: false, message: 'Please select a plan first' });
+    try {
+        let user = await usersCollection.findOne({ email: userEmail });
+        if (!user) return res.json({ success: false, message: 'User not found' });
+        
+        await checkAndResetDailyCounters(user);
+        user = await usersCollection.findOne({ email: userEmail });
+        
+        if (!user.plan || user.plan === '') {
+            return res.json({ success: false, message: 'Please select a plan first' });
+        }
+        
+        if (user.grantedVideos !== true) {
+            return res.json({ success: false, message: 'Video access not granted yet.' });
+        }
+        
+        const planData = PLANS[user.plan];
+        if (!planData) {
+            return res.json({ success: false, message: 'Invalid plan' });
+        }
+        
+        if (user.dailyVideosWatched >= planData.dailyVideos) {
+            return res.json({ success: false, message: `Daily limit reached (${planData.dailyVideos}/${planData.dailyVideos})` });
+        }
+        
+        const watchedKeys = user.watchedKeys || [];
+        if (watchedKeys.includes(videoKey)) {
+            return res.json({ success: false, message: `This video already watched today! Come back tomorrow.` });
+        }
+        
+        watchedKeys.push(videoKey);
+        const earnings = planData.videoCommission;
+        const currentAmount = user.amount || 0;
+        const newAmount = currentAmount + earnings;
+        
+        await usersCollection.updateOne(
+            { email: userEmail },
+            { 
+                $set: { 
+                    watchedKeys: watchedKeys,
+                    dailyVideosWatched: (user.dailyVideosWatched || 0) + 1,
+                    amount: newAmount.toFixed(2),
+                    videoEarnings: (user.videoEarnings || 0) + earnings
+                }
+            }
+        );
+        
+        res.json({ 
+            success: true, 
+            message: `🎉 +${earnings} PKR earned!`,
+            earnings: earnings,
+            dailyVideosWatched: (user.dailyVideosWatched || 0) + 1,
+            dailyVideoLimit: planData.dailyVideos,
+            amount: newAmount.toFixed(2)
+        });
+    } catch (error) {
+        console.error('Mark video error:', error);
+        res.json({ success: false, message: 'Server error' });
     }
-    
-    if (user.grantedVideos !== true) {
-        return res.json({ success: false, message: 'Video access not granted yet.' });
-    }
-    
-    const planData = PLANS[user.plan];
-    if (!planData) {
-        return res.json({ success: false, message: 'Invalid plan' });
-    }
-    
-    if (user.dailyVideosWatched >= planData.dailyVideos) {
-        return res.json({ success: false, message: `Daily limit reached (${planData.dailyVideos}/${planData.dailyVideos})` });
-    }
-    
-    if (!user.watchedKeys) user.watchedKeys = [];
-    
-    if (user.watchedKeys.includes(videoKey)) {
-        return res.json({ success: false, message: `This video already watched today! Come back tomorrow.` });
-    }
-    
-    user.watchedKeys.push(videoKey);
-    user.dailyVideosWatched = (user.dailyVideosWatched || 0) + 1;
-    
-    const earnings = planData.videoCommission;
-    const currentAmount = parseFloat(user.amount) || 0;
-    user.amount = (currentAmount + earnings).toFixed(2);
-    user.videoEarnings = (user.videoEarnings || 0) + earnings;
-    
-    writeJSON(USERS_FILE, users);
-    
-    res.json({ 
-        success: true, 
-        message: `🎉 +${earnings} PKR earned!`,
-        earnings: earnings,
-        dailyVideosWatched: user.dailyVideosWatched,
-        dailyVideoLimit: planData.dailyVideos,
-        amount: user.amount
-    });
 });
 
 // REQUEST WITHDRAWAL
-app.post('/requestWithdrawal', requireLogin, (req, res) => {
-    let users = readJSON(USERS_FILE) || [];
-    const userIndex = users.findIndex(u => u.email === req.session.user);
-    
-    if (userIndex === -1) return res.json({ success: false, message: 'User not found' });
-    
-    const user = users[userIndex];
-    
-    if (!user.withdrawalMethod || !user.withdrawalAccount || !user.accountHolderName) {
-        return res.json({ success: false, message: 'Please save your withdrawal information first!' });
+app.post('/requestWithdrawal', requireLogin, async (req, res) => {
+    try {
+        const user = await usersCollection.findOne({ email: req.session.user });
+        if (!user) return res.json({ success: false, message: 'User not found' });
+        
+        if (!user.withdrawalMethod || !user.withdrawalAccount || !user.accountHolderName) {
+            return res.json({ success: false, message: 'Please save your withdrawal information first!' });
+        }
+        
+        if (!user.plan || user.plan === '') {
+            return res.json({ success: false, message: 'Please select a plan first' });
+        }
+        
+        const planData = PLANS[user.plan];
+        const withdrawalLimit = planData.withdrawalLimit;
+        const currentAmount = user.amount || 0;
+        
+        if (currentAmount < withdrawalLimit) {
+            return res.json({ success: false, message: `Need ${withdrawalLimit} PKR to withdraw. Current: ${currentAmount.toFixed(2)} PKR` });
+        }
+        
+        if (user.withdrawalRequested) {
+            return res.json({ success: false, message: 'You already have a pending withdrawal request' });
+        }
+        
+        await usersCollection.updateOne(
+            { email: req.session.user },
+            { 
+                $set: { 
+                    withdrawalRequested: true,
+                    withdrawalMessage: `PENDING - ${withdrawalLimit} PKR requested on ${new Date().toLocaleString()}`
+                }
+            }
+        );
+        
+        res.json({ success: true, message: 'Withdrawal requested! Admin will process it soon.' });
+    } catch (error) {
+        console.error('Request withdrawal error:', error);
+        res.json({ success: false, message: 'Server error' });
     }
-    
-    if (!user.plan || user.plan === '') {
-        return res.json({ success: false, message: 'Please select a plan first' });
-    }
-    
-    const planData = PLANS[user.plan];
-    const withdrawalLimit = planData.withdrawalLimit;
-    const currentAmount = parseFloat(user.amount) || 0;
-    
-    if (currentAmount < withdrawalLimit) {
-        return res.json({ success: false, message: `Need ${withdrawalLimit} PKR to withdraw. Current: ${currentAmount.toFixed(2)} PKR` });
-    }
-    
-    if (user.withdrawalRequested) {
-        return res.json({ success: false, message: 'You already have a pending withdrawal request' });
-    }
-    
-    user.withdrawalRequested = true;
-    user.withdrawalMessage = `PENDING - ${withdrawalLimit} PKR requested on ${new Date().toLocaleString()}`;
-    
-    writeJSON(USERS_FILE, users);
-    
-    res.json({ success: true, message: 'Withdrawal requested! Admin will process it soon.' });
 });
 
 // SAVE WITHDRAWAL INFO
-app.post('/saveWithdrawalInfo', requireLogin, (req, res) => {
+app.post('/saveWithdrawalInfo', requireLogin, async (req, res) => {
     const { withdrawalMethod, withdrawalAccount, accountHolderName, accountTitle } = req.body;
     
     if (!withdrawalMethod || !withdrawalMethod.trim()) {
@@ -876,73 +958,83 @@ app.post('/saveWithdrawalInfo', requireLogin, (req, res) => {
         return res.json({ success: false, message: 'Please enter account holder name' });
     }
     
-    let users = readJSON(USERS_FILE) || [];
-    const userIndex = users.findIndex(u => u.email === req.session.user);
-    
-    if (userIndex === -1) return res.json({ success: false, message: 'User not found' });
-    
-    users[userIndex].withdrawalMethod = withdrawalMethod;
-    users[userIndex].withdrawalAccount = withdrawalAccount;
-    users[userIndex].accountHolderName = accountHolderName;
-    users[userIndex].accountTitle = accountTitle || '';
-    
-    writeJSON(USERS_FILE, users);
-    
-    res.json({ success: true, message: 'Withdrawal information saved successfully!' });
+    try {
+        await usersCollection.updateOne(
+            { email: req.session.user },
+            { 
+                $set: { 
+                    withdrawalMethod: withdrawalMethod,
+                    withdrawalAccount: withdrawalAccount,
+                    accountHolderName: accountHolderName,
+                    accountTitle: accountTitle || ''
+                }
+            }
+        );
+        
+        res.json({ success: true, message: 'Withdrawal information saved successfully!' });
+    } catch (error) {
+        console.error('Save withdrawal error:', error);
+        res.json({ success: false, message: 'Server error' });
+    }
 });
 
 // DELETE USER
-app.post('/deleteUser', requireAdmin, (req, res) => {
+app.post('/deleteUser', requireAdmin, async (req, res) => {
     const { email } = req.body;
     
     if (!email) return res.json({ success: false, message: 'Email required' });
-    
-    let users = readJSON(USERS_FILE) || [];
     
     if (email === ADMIN_EMAIL) {
         return res.json({ success: false, message: 'Cannot delete admin account' });
     }
     
-    users = users.filter(u => u.email !== email);
-    writeJSON(USERS_FILE, users);
-    
-    console.log(`🗑️ Admin deleted user: ${email}`);
-    
-    res.json({ success: true, message: `User ${email} deleted successfully` });
+    try {
+        await usersCollection.deleteOne({ email: email });
+        console.log(`🗑️ Admin deleted user: ${email}`);
+        res.json({ success: true, message: `User ${email} deleted successfully` });
+    } catch (error) {
+        res.json({ success: false, message: 'Error deleting user' });
+    }
 });
 
 // RESET DAILY COUNTERS
-app.post('/resetDailyCounters', requireAdmin, (req, res) => {
-    let users = readJSON(USERS_FILE) || [];
-    const now = new Date().toISOString();
-    let resetCount = 0;
-    
-    users.forEach(user => {
-        if (user.email !== ADMIN_EMAIL) {
-            user.dailyVideosWatched = 0;
-            user.watched = [];
-            user.watchedKeys = [];
-            user.lastDailyReset = now;
-            resetCount++;
-        }
-    });
-    
-    writeJSON(USERS_FILE, users);
-    console.log(`🔄 Admin reset daily counters for ${resetCount} users`);
-    res.json({ success: true, message: `Daily counters reset for ${resetCount} users` });
+app.post('/resetDailyCounters', requireAdmin, async (req, res) => {
+    try {
+        const now = new Date().toISOString();
+        const result = await usersCollection.updateMany(
+            { email: { $ne: ADMIN_EMAIL } },
+            { 
+                $set: { 
+                    dailyVideosWatched: 0, 
+                    watched: [], 
+                    watchedKeys: [], 
+                    lastDailyReset: now 
+                }
+            }
+        );
+        console.log(`🔄 Admin reset daily counters for ${result.modifiedCount} users`);
+        res.json({ success: true, message: `Daily counters reset for ${result.modifiedCount} users` });
+    } catch (error) {
+        res.json({ success: false, message: 'Error resetting counters' });
+    }
 });
 
 // RESET COMPANY BALANCE
-app.post('/resetCompanyBalance', requireAdmin, (req, res) => {
+app.post('/resetCompanyBalance', requireAdmin, async (req, res) => {
     try {
         const defaultCompanyBalance = {
+            _id: 'balance',
             totalCollected: 0,
             totalPaid: 0,
             totalCommissionPaid: 0,
             balance: 0,
             transactions: []
         };
-        writeJSON(COMPANY_BALANCE_FILE, defaultCompanyBalance);
+        await companyBalanceCollection.updateOne(
+            { _id: 'balance' },
+            { $set: defaultCompanyBalance },
+            { upsert: true }
+        );
         console.log('🏦 Company balance reset to 0 by admin');
         res.json({ success: true, message: 'Company balance reset to 0' });
     } catch (e) {
@@ -951,11 +1043,13 @@ app.post('/resetCompanyBalance', requireAdmin, (req, res) => {
 });
 
 // START SERVER
-app.listen(PORT, () => {
-    console.log(`✅ S-CORP server running on http://localhost:${PORT}`);
-    console.log(`💰 Currency: PKR`);
-    console.log(`📊 Plans: 500, 1000, 1500 PKR`);
-    console.log(`🎬 Video Commission: 30/40/50 PKR per video`);
-    console.log(`👥 Referral Commission: 50/80/100 PKR (paid when child gets video access)`);
-    console.log(`🔐 Admin: ${ADMIN_EMAIL} / [HIDDEN]`);
+connectDB().then(() => {
+    app.listen(PORT, () => {
+        console.log(`✅ S-CORP server running on port ${PORT}`);
+        console.log(`💰 Currency: PKR`);
+        console.log(`📊 Plans: 500, 1000, 1500 PKR`);
+        console.log(`🎬 Video Commission: 30/40/50 PKR per video`);
+        console.log(`👥 Referral Commission: 50/80/100 PKR (paid when child gets video access)`);
+        console.log(`🔐 Admin: ${ADMIN_EMAIL}`);
+    });
 });
