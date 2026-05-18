@@ -100,13 +100,15 @@ async function connectDB() {
     try {
         const client = new MongoClient(MONGODB_URI);
         await client.connect();
+        console.log('✅ MongoDB client connected');
+        
         db = client.db(DB_NAME);
         usersCollection = db.collection('users');
         videosCollection = db.collection('videos');
         paymentMethodsCollection = db.collection('paymentmethods');
         companyBalanceCollection = db.collection('companybalance');
         
-        console.log('✅ Connected to MongoDB');
+        console.log('✅ MongoDB collections initialized');
         await initializeDB();
         return true;
     } catch (error) {
@@ -118,7 +120,10 @@ async function connectDB() {
 // ===== INITIALIZE DATABASE =====
 async function initializeDB() {
     try {
-        // Create admin if not exists
+        if (!usersCollection) {
+            throw new Error('usersCollection is not defined');
+        }
+        
         const adminExists = await usersCollection.findOne({ email: ADMIN_EMAIL });
         if (!adminExists) {
             const hashedAdminPass = await bcrypt.hash(ADMIN_PASSWORD, 10);
@@ -158,7 +163,6 @@ async function initializeDB() {
             console.log('✓ Admin account already exists');
         }
         
-        // Create default videos
         const videosExist = await videosCollection.findOne({ _id: 'videos' });
         if (!videosExist) {
             await videosCollection.insertOne({
@@ -172,7 +176,6 @@ async function initializeDB() {
             console.log('✓ Created default videos in MongoDB');
         }
         
-        // Create default payment methods
         const paymentMethodsExist = await paymentMethodsCollection.findOne({ _id: 'methods' });
         if (!paymentMethodsExist) {
             await paymentMethodsCollection.insertOne({
@@ -185,7 +188,6 @@ async function initializeDB() {
             console.log('✓ Created default payment methods in MongoDB');
         }
         
-        // Create company balance
         const companyBalanceExist = await companyBalanceCollection.findOne({ _id: 'balance' });
         if (!companyBalanceExist) {
             await companyBalanceCollection.insertOne({
@@ -198,8 +200,11 @@ async function initializeDB() {
             });
             console.log('✓ Created company balance in MongoDB');
         }
+        
+        console.log('✅ Database initialization complete');
     } catch (error) {
-        console.error('Error initializing DB:', error);
+        console.error('❌ Error initializing DB:', error);
+        throw error;
     }
 }
 
@@ -211,7 +216,7 @@ app.get('/force-create-admin', async (req, res) => {
         }
         
         const hashedAdminPass = await bcrypt.hash(ADMIN_PASSWORD, 10);
-        const result = await usersCollection.updateOne(
+        await usersCollection.updateOne(
             { email: ADMIN_EMAIL },
             { 
                 $set: {
@@ -248,7 +253,7 @@ app.get('/force-create-admin', async (req, res) => {
             },
             { upsert: true }
         );
-        res.json({ success: true, message: 'Admin created/updated', result: result });
+        res.json({ success: true, message: 'Admin created/updated' });
     } catch (error) {
         res.json({ success: false, error: error.message });
     }
@@ -309,7 +314,6 @@ async function updateCompanyBalance(amount, type, description) {
     return true;
 }
 
-// Process referral when child selects a plan
 async function processReferralOnPlanSelection(childEmail, planName) {
     const child = await usersCollection.findOne({ email: childEmail });
     if (!child) return false;
@@ -337,7 +341,6 @@ async function processReferralOnPlanSelection(childEmail, planName) {
     return true;
 }
 
-// Process referral commission when child gets video access
 async function processReferralCommission(childEmail, planName) {
     const child = await usersCollection.findOne({ email: childEmail });
     if (!child) return false;
@@ -491,6 +494,12 @@ app.post('/signup', async (req, res) => {
 
 // LOGIN
 app.post('/login', async (req, res) => {
+    // Safety check
+    if (!usersCollection) {
+        console.error('Login attempted before database ready');
+        return res.json({ success: false, message: 'System is starting up. Please wait 30 seconds and try again.' });
+    }
+    
     try {
         const { email, password } = req.body;
         
