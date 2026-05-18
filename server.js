@@ -6,7 +6,7 @@ const bcrypt = require('bcrypt');
 const session = require('express-session');
 const multer = require('multer');
 const { MongoClient } = require('mongodb');
-const MongoStore = require('connect-mongo');
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
