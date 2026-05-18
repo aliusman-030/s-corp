@@ -17,24 +17,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'Public')));
 app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
-const MongoStore = require('connect-mongo');
-
 app.use(session({
     secret: process.env.SESSION_SECRET || 's-corp-secret-key-2024',
     resave: false,
-    saveUninitialized: false,
-    store: MongoStore.create({
-        mongoUrl: MONGODB_URI,
-        dbName: DB_NAME,
-        collectionName: 'sessions',
-        ttl: 24 * 60 * 60 // 24 hours
-    }),
+    saveUninitialized: true,
     cookie: { 
         secure: false,
         maxAge: 24 * 60 * 60 * 1000
     }
 }));
-
 // ===== PLAN CONFIGURATION (3 PLANS) =====
 const PLANS = {
     'Plan 1': {
