@@ -152,7 +152,7 @@ async function initializeDB() {
             isPaid: true,
             paidAmount: 500
         });
-        console.log('✓ Created admin account');
+        console.log('✓ Created admin account in MongoDB');
     }
     
     // Create default videos
@@ -166,7 +166,7 @@ async function initializeDB() {
             v4: "https://www.youtube.com/embed/9bZkp7q19f0",
             v5: "https://www.youtube.com/embed/tgbNymZ7vqY"
         });
-        console.log('✓ Created default videos');
+        console.log('✓ Created default videos in MongoDB');
     }
     
     // Create default payment methods
@@ -179,7 +179,7 @@ async function initializeDB() {
                 { name: "JazzCash", number: "03059170455", type: "deposit" }
             ]
         });
-        console.log('✓ Created default payment methods');
+        console.log('✓ Created default payment methods in MongoDB');
     }
     
     // Create company balance
@@ -193,7 +193,7 @@ async function initializeDB() {
             balance: 0,
             transactions: []
         });
-        console.log('✓ Created company balance');
+        console.log('✓ Created company balance in MongoDB');
     }
 }
 
@@ -260,9 +260,9 @@ async function processReferralOnPlanSelection(childEmail, planName) {
     const referredBy = child.referredBy;
     if (!referredBy || referredBy === '') return false;
     
-    // Check if this is the FIRST plan selection (hadPlanBefore is false)
+    // Check if this is the FIRST plan selection
     const hadPlanBefore = child.plan && child.plan !== '';
-    if (hadPlanBefore) return false; // Already counted before
+    if (hadPlanBefore) return false;
     
     const parent = await usersCollection.findOne({ email: referredBy });
     if (!parent) return false;
@@ -303,7 +303,6 @@ async function processReferralCommission(childEmail, planName) {
     }
     
     const commission = planData.referralCommission;
-    const currentParentBalance = parent.amount || 0;
     
     await usersCollection.updateOne(
         { email: referredBy },
@@ -311,7 +310,13 @@ async function processReferralCommission(childEmail, planName) {
             $inc: { 
                 amount: commission,
                 referralEarnings: commission
-            },
+            }
+        }
+    );
+    
+    await usersCollection.updateOne(
+        { email: referredBy },
+        { 
             $inc: { 
                 referralsWithPlan: 1,
                 referralsWithoutPlan: -1
@@ -647,7 +652,7 @@ app.post('/saveVideos', requireAdmin, async (req, res) => {
     }
 });
 
-// SELECT PLAN - Count referral when user selects a plan (FIRST TIME ONLY)
+// SELECT PLAN - Count referral when user selects plan (FIRST TIME ONLY)
 app.post('/selectPlan', requireLogin, async (req, res) => {
     const { plan } = req.body;
     const userEmail = req.session.user;
@@ -662,19 +667,14 @@ app.post('/selectPlan', requireLogin, async (req, res) => {
             return res.json({ success: false, message: 'User not found' });
         }
         
-        // Check if this is the FIRST plan selection
         const hadPlanBefore = user.plan && user.plan !== '';
         const hasReferrer = user.referredBy && user.referredBy !== '';
         
-        // Update user's plan
         await usersCollection.updateOne(
             { email: userEmail },
             { $set: { plan: plan, grantedVideos: false, isPaid: false } }
         );
         
-        // ONLY count referral if:
-        // 1. User has a referrer
-        // 2. User did NOT have a plan before (first time selecting a plan)
         if (hasReferrer && !hadPlanBefore) {
             await processReferralOnPlanSelection(userEmail, plan);
         }
@@ -758,12 +758,8 @@ app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
         );
         
         if (grantAccess && !wasGranted) {
-            // Add to company collected balance
             await updateCompanyBalance(planData.price, 'collected', `Payment from ${email} for ${user.plan}`);
-            
-            // Process referral commission (THIS IS WHERE PARENT GETS PAID)
             await processReferralCommission(email, userPlan);
-            
             console.log(`✅ GRANTED video access to ${email} for plan ${user.plan}`);
         } else if (!grantAccess) {
             console.log(`❌ REVOKED video access from ${email}`);
