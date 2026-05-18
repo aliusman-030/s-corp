@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const session = require('express-session');
 const multer = require('multer');
 const { MongoClient } = require('mongodb');
+const MongoStore = require('connect-mongo');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,10 +17,19 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'Public')));
 app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
+// ===== SESSION WITH MONGODB STORE (Fixes MemoryStore warning) =====
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://s-corp-user:S-Corp2026@cluster0.rjxsj7i.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+
 app.use(session({
     secret: process.env.SESSION_SECRET || 's-corp-secret-key-2024',
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: MONGODB_URI,
+        dbName: 's-corp',
+        collectionName: 'sessions',
+        ttl: 24 * 60 * 60
+    }),
     cookie: { 
         secure: false,
         maxAge: 24 * 60 * 60 * 1000
@@ -51,8 +61,6 @@ const PLANS = {
     }
 };
 
-// ===== MONGODB CONNECTION =====
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://s-corp-user:S-Corp2026@cluster0.rjxsj7i.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 const DB_NAME = 's-corp';
 
 let db;
@@ -254,7 +262,6 @@ async function updateCompanyBalance(amount, type, description) {
 
 // ===== REFERRAL FUNCTIONS =====
 
-// Called when child selects a plan (counts referral, no money yet)
 async function processReferralOnPlanSelection(childEmail, planName) {
     const child = await usersCollection.findOne({ email: childEmail });
     if (!child) return false;
@@ -282,9 +289,8 @@ async function processReferralOnPlanSelection(childEmail, planName) {
     return true;
 }
 
-// Called when admin grants video access (PAYS commission to parent)
 async function processReferralCommission(childEmail, planName) {
-    console.log(`💰 Processing referral commission for ${childEmail} with plan ${planName}`);
+    console.log(`💰 [COMMISSION] Starting for ${childEmail} with plan ${planName}`);
     
     const child = await usersCollection.findOne({ email: childEmail });
     if (!child) {
@@ -298,11 +304,15 @@ async function processReferralCommission(childEmail, planName) {
         return false;
     }
     
+    console.log(`🔍 Child's referrer: ${referredBy}`);
+    
     const parent = await usersCollection.findOne({ email: referredBy });
     if (!parent) {
         console.log(`❌ Parent ${referredBy} not found`);
         return false;
     }
+    
+    console.log(`🔍 Parent found: ${parent.email}, current balance: ${parent.amount}, plan: ${parent.plan}`);
     
     const planData = PLANS[planName];
     if (!planData) {
@@ -310,7 +320,6 @@ async function processReferralCommission(childEmail, planName) {
         return false;
     }
     
-    // Parent must have a plan to receive commission
     if (!parent.plan || parent.plan === '') {
         console.log(`❌ Parent ${referredBy} has no plan, cannot receive commission`);
         return false;
@@ -320,10 +329,9 @@ async function processReferralCommission(childEmail, planName) {
     const currentParentBalance = parseFloat(parent.amount) || 0;
     const newBalance = currentParentBalance + commission;
     
-    console.log(`💵 Adding ${commission} PKR to ${referredBy} (current: ${currentParentBalance}, new: ${newBalance})`);
+    console.log(`💵 Adding ${commission} PKR to ${referredBy} (${currentParentBalance} → ${newBalance})`);
     
-    // Add commission to parent's balance
-    await usersCollection.updateOne(
+    const updateResult = await usersCollection.updateOne(
         { email: referredBy },
         { 
             $set: { 
@@ -333,7 +341,8 @@ async function processReferralCommission(childEmail, planName) {
         }
     );
     
-    // Update referral counts
+    console.log(`📊 Update result: matched=${updateResult.matchedCount}, modified=${updateResult.modifiedCount}`);
+    
     await usersCollection.updateOne(
         { email: referredBy },
         { 
@@ -344,10 +353,9 @@ async function processReferralCommission(childEmail, planName) {
         }
     );
     
-    // Deduct from company balance
     await updateCompanyBalance(commission, 'commission', `Referral commission paid to ${referredBy} for referring ${childEmail} (${planName})`);
     
-    console.log(`✅ Referral Commission: ${referredBy} earned ${commission} PKR for referring ${childEmail} (${planName})`);
+    console.log(`✅ SUCCESS: ${referredBy} earned ${commission} PKR! New balance: ${newBalance}`);
     return true;
 }
 
@@ -748,9 +756,11 @@ app.post('/upload', requireLogin, upload.single('media'), async (req, res) => {
     }
 });
 
-// TOGGLE VIDEO ACCESS - THIS IS WHERE COMMISSION IS PAID
+// ===== TOGGLE VIDEO ACCESS - COMMISSION PAID HERE =====
 app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
     const { email, grantAccess } = req.body;
+    
+    console.log(`🔘 Toggle video access: ${email} -> ${grantAccess ? 'ON' : 'OFF'}`);
     
     if (!email) return res.json({ success: false, message: 'Email required' });
     
@@ -779,16 +789,13 @@ app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
         );
         
         if (grantAccess && !wasGranted) {
-            // Add to company collected balance
             await updateCompanyBalance(planData.price, 'collected', `Payment from ${email} for ${user.plan}`);
             
-            // THIS IS WHERE PARENT GETS COMMISSION
             console.log(`🎯 Calling processReferralCommission for ${email} with plan ${userPlan}`);
-            await processReferralCommission(email, userPlan);
+            const commissionResult = await processReferralCommission(email, userPlan);
+            console.log(`📊 Commission result: ${commissionResult}`);
             
             console.log(`✅ GRANTED video access to ${email} for plan ${user.plan}`);
-        } else if (!grantAccess) {
-            console.log(`❌ REVOKED video access from ${email}`);
         }
         
         res.json({ 
