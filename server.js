@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const session = require('express-session');
 const multer = require('multer');
 const { MongoClient } = require('mongodb');
+const MongoStore = require('connect-mongo');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,10 +17,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'Public')));
 app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
+const MongoStore = require('connect-mongo');
+
 app.use(session({
     secret: process.env.SESSION_SECRET || 's-corp-secret-key-2024',
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: MONGODB_URI,
+        dbName: DB_NAME,
+        collectionName: 'sessions',
+        ttl: 24 * 60 * 60 // 24 hours
+    }),
     cookie: { 
         secure: false,
         maxAge: 24 * 60 * 60 * 1000
