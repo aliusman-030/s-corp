@@ -11,29 +11,35 @@ const MongoStore = require('connect-mongo');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ===== MONGODB CONNECTION STRING =====
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://s-corp-user:S-Corp2026@cluster0.rjxsj7i.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+const DB_NAME = 's-corp';
+
 // ===== MIDDLEWARE =====
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'Public')));
 app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
-// ===== SESSION WITH MONGODB STORE (Fixes MemoryStore warning) =====
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://s-corp-user:S-Corp2026@cluster0.rjxsj7i.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
-
+// ===== SESSION CONFIGURATION - FIXED FOR PERSISTENCE =====
 app.use(session({
-    secret: process.env.SESSION_SECRET || 's-corp-secret-key-2024',
+    secret: process.env.SESSION_SECRET || 's-corp-super-secret-key-2024',
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
         mongoUrl: MONGODB_URI,
-        dbName: 's-corp',
+        dbName: DB_NAME,
         collectionName: 'sessions',
-        ttl: 24 * 60 * 60
+        ttl: 24 * 60 * 60,
+        touchAfter: 24 * 3600
     }),
-    cookie: { 
+    cookie: {
         secure: false,
-        maxAge: 24 * 60 * 60 * 1000
-    }
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000,
+        sameSite: 'lax'
+    },
+    name: 's-corp.sid'
 }));
 
 // ===== PLAN CONFIGURATION (3 PLANS) =====
@@ -60,8 +66,6 @@ const PLANS = {
         referralCommission: 100
     }
 };
-
-const DB_NAME = 's-corp';
 
 let db;
 let usersCollection;
@@ -483,6 +487,11 @@ app.post('/login', async (req, res) => {
         req.session.user = email;
         req.session.isAdmin = email === ADMIN_EMAIL;
         
+        // Force save session
+        req.session.save((err) => {
+            if (err) console.error('Session save error:', err);
+        });
+        
         res.json({ success: true, message: 'Login successful!', isAdmin: email === ADMIN_EMAIL });
     } catch (e) {
         console.error('Login error:', e);
@@ -492,8 +501,10 @@ app.post('/login', async (req, res) => {
 
 // LOGOUT
 app.get('/logout', (req, res) => {
-    req.session.destroy();
-    res.redirect('/login.html');
+    req.session.destroy((err) => {
+        if (err) console.error('Logout error:', err);
+        res.redirect('/login.html');
+    });
 });
 
 // PROFILE DATA
