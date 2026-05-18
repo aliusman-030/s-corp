@@ -564,7 +564,7 @@ app.get('/profileData', requireLogin, async (req, res) => {
             email: user.email,
             plan: user.plan || '',
             referral: user.referral || '',
-            amount: (user.amount || 0).toFixed(2),
+            amount: (parseFloat(user.amount) || 0).toFixed(2),
             withdrawalLimit: planData ? planData.withdrawalLimit : 0,
             videos: grantedVideos,
             isAdmin: req.session.user === ADMIN_EMAIL,
@@ -662,7 +662,7 @@ app.get('/getUsers', requireAdmin, async (req, res) => {
             return {
                 email: user.email,
                 plan: user.plan || '',
-                amount: (user.amount || 0).toFixed(2),
+                amount: (parseFloat(user.amount) || 0).toFixed(2),
                 withdrawalLimit: planData ? planData.withdrawalLimit : 0,
                 totalReferralsAdded: user.totalReferralsAdded || 0,
                 referralsWithPlan: user.referralsWithPlan || 0,
@@ -859,7 +859,7 @@ app.post('/processWithdrawal', requireAdmin, async (req, res) => {
         }
         
         const withdrawalAmount = planData.withdrawalLimit;
-        const currentUserBalance = user.amount || 0;
+        const currentUserBalance = parseFloat(user.amount) || 0;
         
         if (currentUserBalance < withdrawalAmount) {
             return res.json({ success: false, message: `Insufficient balance: ${currentUserBalance} < ${withdrawalAmount}` });
@@ -929,7 +929,7 @@ app.post('/markVideoWatched', requireLogin, async (req, res) => {
         
         watchedKeys.push(videoKey);
         const earnings = planData.videoCommission;
-        const currentAmount = user.amount || 0;
+        const currentAmount = parseFloat(user.amount) || 0;
         const newAmount = currentAmount + earnings;
         
         await usersCollection.updateOne(
@@ -938,7 +938,7 @@ app.post('/markVideoWatched', requireLogin, async (req, res) => {
                 $set: { 
                     watchedKeys: watchedKeys,
                     dailyVideosWatched: (user.dailyVideosWatched || 0) + 1,
-                    amount: newAmount.toFixed(2),
+                    amount: newAmount,
                     videoEarnings: (user.videoEarnings || 0) + earnings
                 }
             }
@@ -974,7 +974,7 @@ app.post('/requestWithdrawal', requireLogin, async (req, res) => {
         
         const planData = PLANS[user.plan];
         const withdrawalLimit = planData.withdrawalLimit;
-        const currentAmount = user.amount || 0;
+        const currentAmount = parseFloat(user.amount) || 0;
         
         if (currentAmount < withdrawalLimit) {
             return res.json({ success: false, message: `Need ${withdrawalLimit} PKR to withdraw. Current: ${currentAmount.toFixed(2)} PKR` });
