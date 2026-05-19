@@ -158,8 +158,6 @@
         }
         .lucky-number-box:hover { transform: translateY(-5px); border-color: #ff0000; }
         .lucky-number-box.selected { border-color: #4CAF50; background: linear-gradient(135deg, #1a3c1a, #0a2a0a); }
-        .lucky-number-box.disabled { opacity: 0.5; cursor: not-allowed; }
-        .lucky-number-box.disabled:hover { transform: none; }
         .lucky-number { font-size: 32px; font-weight: bold; color: #ff0000; }
         .winning-badge {
             background: linear-gradient(135deg, #ffd700, #ff8c00);
@@ -171,21 +169,6 @@
         }
         .winning-number { font-size: 48px; font-weight: bold; color: #ff0000; }
         .reward-amount { font-size: 24px; color: #4CAF50; font-weight: bold; }
-        .wins-list {
-            margin-top: 20px;
-            background: #2a2a2a;
-            border-radius: 8px;
-            padding: 15px;
-        }
-        .win-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            border-bottom: 1px solid #444;
-        }
-        .win-item:last-child { border-bottom: none; }
-        .win-date { color: #aaa; font-size: 12px; }
-        .win-reward { color: #4CAF50; font-weight: bold; }
         
         .alert {
             padding: 15px;
@@ -531,17 +514,7 @@
             }
             numbersHtml += '</div>';
             
-            var winsHtml = '';
-            if (data.wins && data.wins.length > 0) {
-                winsHtml = '<div class="wins-list"><h3 style="margin-bottom: 15px;">🏆 Your Previous Wins</h3>';
-                for (var i = 0; i < data.wins.length; i++) {
-                    var win = data.wins[i];
-                    winsHtml += '<div class="win-item"><div><div>Won for number ' + win.number + '</div><div class="win-date">' + new Date(win.date).toLocaleDateString() + '</div></div><div class="win-reward">+' + win.reward + ' PKR</div></div>';
-                }
-                winsHtml += '</div>';
-            }
-            
-            container.innerHTML = winningHtml + '<div style="text-align: center; margin: 15px 0;"><strong>Pick your lucky number for tomorrow:</strong></div>' + numbersHtml + '<div style="text-align: center; color: #aaa; font-size: 14px; margin-top: 15px;">⏰ You can pick only ONE number per day. Selections reset daily at 11:00 PM PKT.</div>' + winsHtml;
+            container.innerHTML = winningHtml + '<div style="text-align: center; margin: 15px 0;"><strong>Pick your lucky number for tomorrow:</strong></div>' + numbersHtml + '<div style="text-align: center; color: #aaa; font-size: 14px; margin-top: 15px;">⏰ You can pick only ONE number per day. Selections reset daily at 11:00 PM PKT.</div>';
         }
 
         async function selectLuckyNumber(number) {
