@@ -474,6 +474,36 @@
             }
         }
 
+        function updateBuyTotal() {
+            const coins = document.getElementById('buyCoinsAmount').value;
+            const totalElement = document.getElementById('buyTotalAmount');
+            if (coins && coins > 0) {
+                const total = parseInt(coins) * coinPrice;
+                totalElement.textContent = total.toFixed(2) + ' PKR';
+            } else {
+                totalElement.textContent = '0 PKR';
+            }
+        }
+
+        function updateSellTotal() {
+            const coins = document.getElementById('sellCoinsAmount').value;
+            const totalElement = document.getElementById('sellTotalAmount');
+            const maxCoins = parseInt(document.getElementById('maxSellCoins').textContent) || 0;
+            
+            if (coins && coins > 0) {
+                if (parseInt(coins) > maxCoins) {
+                    document.getElementById('sellCoinsAmount').value = maxCoins;
+                    const total = maxCoins * coinPrice;
+                    totalElement.textContent = total.toFixed(2) + ' PKR';
+                } else {
+                    const total = parseInt(coins) * coinPrice;
+                    totalElement.textContent = total.toFixed(2) + ' PKR';
+                }
+            } else {
+                totalElement.textContent = '0 PKR';
+            }
+        }
+
         function displayCoinWallet(data) {
             const coinBalance = data.coinBalance || 0;
             const valueInPKR = coinBalance * coinPrice;
@@ -527,7 +557,11 @@
                     <h3 style="margin-bottom: 15px;">📥 Buy S-Coins</h3>
                     <div class="form-group">
                         <label class="form-label">Number of S-Coins (1-1000)</label>
-                        <input type="number" class="form-input" id="buyCoinsAmount" min="1" max="1000" placeholder="Enter number of coins">
+                        <input type="number" class="form-input" id="buyCoinsAmount" min="1" max="1000" placeholder="Enter number of coins" oninput="updateBuyTotal()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Total Amount to Pay</label>
+                        <div class="info-value" id="buyTotalAmount" style="background: #1a1a1a; font-size: 20px; font-weight: bold;">0 PKR</div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Payment Proof</label>
@@ -540,28 +574,22 @@
                     <h3 style="margin-bottom: 15px;">📤 Sell S-Coins</h3>
                     <div class="form-group">
                         <label class="form-label">Number of S-Coins (Max: ${coinBalance})</label>
-                        <input type="number" class="form-input" id="sellCoinsAmount" min="1" max="${coinBalance}" placeholder="Enter number of coins">
+                        <input type="number" class="form-input" id="sellCoinsAmount" min="1" max="${coinBalance}" placeholder="Enter number of coins" oninput="updateSellTotal()">
                     </div>
                     <div class="form-group">
                         <label class="form-label">You will receive</label>
-                        <div class="info-value" id="sellAmountPreview">0 PKR</div>
+                        <div class="info-value" id="sellTotalAmount" style="background: #1a1a1a; font-size: 20px; font-weight: bold;">0 PKR</div>
                     </div>
                     <button class="btn btn-success" onclick="submitSellCoins()" style="width: 100%;" ${coinBalance === 0 ? 'disabled' : ''}>💸 Request to Sell</button>
+                </div>
+                
+                <div class="form-group" style="display: none;">
+                    <input type="hidden" id="maxSellCoins" value="${coinBalance}">
                 </div>
                 
                 ${pendingHtml}
                 ${historyHtml}
             `;
-            
-            // Update sell preview
-            const sellInput = document.getElementById('sellCoinsAmount');
-            if (sellInput) {
-                sellInput.addEventListener('input', function() {
-                    const coins = parseInt(this.value) || 0;
-                    const preview = document.getElementById('sellAmountPreview');
-                    if (preview) preview.textContent = (coins * coinPrice).toFixed(2) + ' PKR';
-                });
-            }
         }
 
         async function submitBuyCoins() {
@@ -591,6 +619,7 @@
                 if (result.success) {
                     showAlert(result.message, 'success');
                     document.getElementById('buyCoinsAmount').value = '';
+                    document.getElementById('buyTotalAmount').textContent = '0 PKR';
                     document.getElementById('buyCoinProof').value = '';
                     loadCoinWallet();
                 } else {
@@ -623,6 +652,7 @@
                 if (result.success) {
                     showAlert(result.message, 'success');
                     document.getElementById('sellCoinsAmount').value = '';
+                    document.getElementById('sellTotalAmount').textContent = '0 PKR';
                     loadCoinWallet();
                 } else {
                     showAlert(result.message, 'error');
