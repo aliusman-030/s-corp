@@ -93,7 +93,6 @@ async function connectDB() {
 
 async function initializeDB() {
     try {
-        // Create admin if not exists
         const adminExists = await usersCollection.findOne({ email: ADMIN_EMAIL });
         if (!adminExists) {
             const hashedAdminPass = await bcrypt.hash(ADMIN_PASSWORD, 10);
@@ -107,12 +106,12 @@ async function initializeDB() {
                 createdAt: new Date().toISOString(), totalReferralsAdded: 0, referralsWithPlan: 0,
                 referralsWithoutPlan: 0, dailyVideosWatched: 0, referralEarnings: 0, videoEarnings: 0,
                 referredBy: '', lastDailyReset: new Date().toISOString(), isPaid: true, paidAmount: 500,
-                luckyDraw: { selectedNumber: null, lastResetDate: null }, luckyDrawWins: []
+                luckyDraw: { selectedNumber: null, lastResetDate: null }, luckyDrawWins: [],
+                coinBalance: 0, coinTransactions: []
             });
             console.log('✓ Created admin account');
         }
         
-        // Create default videos
         const videosExist = await videosCollection.findOne({ _id: 'videos' });
         if (!videosExist) {
             await videosCollection.insertOne({
@@ -126,7 +125,6 @@ async function initializeDB() {
             console.log('✓ Created default videos');
         }
         
-        // Create default payment methods
         const paymentMethodsExist = await paymentMethodsCollection.findOne({ _id: 'methods' });
         if (!paymentMethodsExist) {
             await paymentMethodsCollection.insertOne({
@@ -139,13 +137,20 @@ async function initializeDB() {
             console.log('✓ Created payment methods');
         }
         
-        // Create company balance
         const companyBalanceExist = await companyBalanceCollection.findOne({ _id: 'balance' });
         if (!companyBalanceExist) {
             await companyBalanceCollection.insertOne({
                 _id: 'balance', totalCollected: 0, totalPaid: 0, totalCommissionPaid: 0, balance: 0, transactions: []
             });
             console.log('✓ Created company balance');
+        }
+        
+        const coinSettingsExist = await db.collection('coinsettings').findOne({ _id: 'settings' });
+        if (!coinSettingsExist) {
+            await db.collection('coinsettings').insertOne({
+                _id: 'settings', currentPrice: 10, lastUpdated: new Date().toISOString()
+            });
+            console.log('✓ Created coin settings');
         }
     } catch (error) {
         console.error('Error initializing DB:', error);
@@ -223,6 +228,12 @@ async function processReferralCommission(childEmail, planName) {
     return true;
 }
 
+function getTodayPKT() {
+    const now = new Date();
+    const pktDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
+    return pktDate.toISOString().split('T')[0];
+}
+
 function requireLogin(req, res, next) {
     if (!req.session.user) {
         if (req.xhr || req.headers.accept?.includes('json')) {
@@ -241,13 +252,6 @@ function requireAdmin(req, res, next) {
         return res.redirect('/login.html');
     }
     next();
-}
-
-// ===== SIMPLE LUCKY DRAW FUNCTIONS =====
-function getTodayPKT() {
-    const now = new Date();
-    const pktDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
-    return pktDate.toISOString().split('T')[0];
 }
 
 // ===== ROUTES =====
@@ -299,7 +303,8 @@ app.post('/signup', async (req, res) => {
             accountHolderName: '', accountTitle: '', createdAt: new Date().toISOString(),
             totalReferralsAdded: 0, referralsWithPlan: 0, referralsWithoutPlan: 0, dailyVideosWatched: 0,
             referralEarnings: 0, videoEarnings: 0, referredBy: referredBy, lastDailyReset: new Date().toISOString(),
-            isPaid: false, paidAmount: 0, luckyDraw: { selectedNumber: null, lastResetDate: null }, luckyDrawWins: []
+            isPaid: false, paidAmount: 0, luckyDraw: { selectedNumber: null, lastResetDate: null }, luckyDrawWins: [],
+            coinBalance: 0, coinTransactions: []
         };
         
         await usersCollection.insertOne(newUser);
@@ -350,6 +355,10 @@ app.get('/profileData', requireLogin, async (req, res) => {
             const assignedKeys = videoKeys.slice(0, videoCount);
             grantedVideos = assignedKeys.map(key => ({ key, url: allVideos[key], isWatched: (user.watchedKeys || []).includes(key) })).filter(v => v.url && v.url.trim());
         }
+        
+        const coinSettings = await db.collection('coinsettings').findOne({ _id: 'settings' });
+        const coinPrice = coinSettings?.currentPrice || 10;
+        
         res.json({
             email: user.email, plan: user.plan || '', referral: user.referral || '',
             amount: (parseFloat(user.amount) || 0).toFixed(2), withdrawalLimit: planData ? planData.withdrawalLimit : 0,
@@ -363,7 +372,8 @@ app.get('/profileData', requireLogin, async (req, res) => {
             videoEarnings: user.videoEarnings || 0, referralEarnings: user.referralEarnings || 0,
             referredBy: user.referredBy || '', createdAt: user.createdAt || new Date().toISOString(),
             isPaid: user.isPaid || false, grantedVideos: user.grantedVideos || false,
-            videoCommission: planData ? planData.videoCommission : 0, watchedKeys: user.watchedKeys || []
+            videoCommission: planData ? planData.videoCommission : 0, watchedKeys: user.watchedKeys || [],
+            coinBalance: user.coinBalance || 0, coinPrice: coinPrice, coinTransactions: user.coinTransactions || []
         });
     } catch (e) { res.status(500).json({ message: 'Server error' }); }
 });
@@ -402,7 +412,8 @@ app.get('/getUsers', requireAdmin, async (req, res) => {
             withdrawalRequested: user.withdrawalRequested || false, withdrawalMessage: user.withdrawalMessage || '',
             withdrawalMethod: user.withdrawalMethod || '', withdrawalAccount: user.withdrawalAccount || '',
             accountHolderName: user.accountHolderName || '', accountTitle: user.accountTitle || '',
-            role: user.role || 'user', createdAt: user.createdAt, referredBy: user.referredBy || ''
+            role: user.role || 'user', createdAt: user.createdAt, referredBy: user.referredBy || '',
+            coinBalance: user.coinBalance || 0
         })));
     } catch (e) { res.json([]); }
 });
@@ -607,7 +618,8 @@ app.get('/force-create-admin', async (req, res) => {
                 accountTitle: 'Admin Account Title', createdAt: new Date().toISOString(), totalReferralsAdded: 0,
                 referralsWithPlan: 0, referralsWithoutPlan: 0, dailyVideosWatched: 0, referralEarnings: 0,
                 videoEarnings: 0, referredBy: '', lastDailyReset: new Date().toISOString(), isPaid: true, paidAmount: 500,
-                luckyDraw: { selectedNumber: null, lastResetDate: null }, luckyDrawWins: []
+                luckyDraw: { selectedNumber: null, lastResetDate: null }, luckyDrawWins: [],
+                coinBalance: 0, coinTransactions: []
             }
         }, { upsert: true });
         res.json({ success: true, message: 'Admin created/updated' });
@@ -616,13 +628,11 @@ app.get('/force-create-admin', async (req, res) => {
     }
 });
 
-// ===== SIMPLIFIED LUCKY DRAW API =====
-
+// ===== LUCKY DRAW API =====
 app.get('/getLuckyDrawStatus', requireLogin, async (req, res) => {
     try {
         const user = await usersCollection.findOne({ email: req.session.user });
         const today = getTodayPKT();
-        
         const draw = await luckyDrawCollection.findOne({ date: today });
         const winningNumber = draw?.winningNumber || null;
         const rewardAmount = draw?.rewardAmount || null;
@@ -645,7 +655,6 @@ app.get('/getLuckyDrawStatus', requireLogin, async (req, res) => {
             wins: user.luckyDrawWins || []
         });
     } catch (error) {
-        console.error('Lucky draw error:', error);
         res.json({ success: false, message: error.message });
     }
 });
@@ -673,7 +682,6 @@ app.post('/selectLuckyNumber', requireLogin, async (req, res) => {
         
         res.json({ success: true, message: `You selected number ${number}! Good luck!` });
     } catch (error) {
-        console.error('Select number error:', error);
         res.json({ success: false, message: 'Error saving your selection' });
     }
 });
@@ -715,7 +723,6 @@ app.post('/setWinningNumber', requireAdmin, async (req, res) => {
         
         res.json({ success: true, message: `Winning number ${winningNumber} announced! ${winnerCount} users won ${rewardAmount} PKR each!` });
     } catch (error) {
-        console.error('Set winning number error:', error);
         res.json({ success: false, message: 'Error setting winning number' });
     }
 });
@@ -739,6 +746,330 @@ app.get('/getLuckyDrawSelections', requireAdmin, async (req, res) => {
     }
 });
 
+// ===== S-COIN SYSTEM =====
+
+// Get coin settings
+app.get('/getCoinSettings', async (req, res) => {
+    try {
+        const settings = await db.collection('coinsettings').findOne({ _id: 'settings' });
+        res.json({ success: true, currentPrice: settings?.currentPrice || 10 });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// Admin set coin price
+app.post('/setCoinPrice', requireAdmin, async (req, res) => {
+    const { price } = req.body;
+    
+    if (!price || price < 1) {
+        return res.json({ success: false, message: 'Price must be at least 1 PKR' });
+    }
+    
+    try {
+        await db.collection('coinsettings').updateOne(
+            { _id: 'settings' },
+            { $set: { currentPrice: price, lastUpdated: new Date().toISOString() } },
+            { upsert: true }
+        );
+        res.json({ success: true, message: `Coin price set to ${price} PKR` });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// User request to buy coins
+app.post('/requestBuyCoins', requireLogin, upload.single('media'), async (req, res) => {
+    const { coins } = req.body;
+    const userEmail = req.session.user;
+    
+    if (!coins || coins < 1 || coins > 1000) {
+        return res.json({ success: false, message: 'Please enter coins between 1 and 1000' });
+    }
+    
+    if (!req.file) {
+        return res.json({ success: false, message: 'Please upload payment proof' });
+    }
+    
+    try {
+        const settings = await db.collection('coinsettings').findOne({ _id: 'settings' });
+        const price = settings?.currentPrice || 10;
+        const totalAmount = coins * price;
+        
+        const user = await usersCollection.findOne({ email: userEmail });
+        const uploads = user.uploads || [];
+        
+        const fileInfo = {
+            filename: req.file.filename,
+            originalName: req.file.originalname,
+            size: req.file.size,
+            mimetype: req.file.mimetype,
+            uploadedAt: new Date().toISOString(),
+            description: `Buy ${coins} S-Coins at ${price} PKR each = ${totalAmount} PKR`,
+            downloadUrl: `/uploads/${req.file.filename}`,
+            type: 'coin_purchase'
+        };
+        
+        uploads.push(fileInfo);
+        
+        const transaction = {
+            id: Date.now().toString(),
+            type: 'buy_request',
+            coins: parseInt(coins),
+            price: price,
+            amount: totalAmount,
+            status: 'pending',
+            proofUrl: fileInfo.downloadUrl,
+            requestedAt: new Date().toISOString(),
+            approvedAt: null
+        };
+        
+        const coinTransactions = user.coinTransactions || [];
+        coinTransactions.push(transaction);
+        
+        await usersCollection.updateOne(
+            { email: userEmail },
+            { $set: { uploads: uploads, coinTransactions: coinTransactions } }
+        );
+        
+        res.json({ success: true, message: `Buy request for ${coins} S-Coins submitted! Waiting for admin approval.` });
+    } catch (error) {
+        console.error('Buy coins error:', error);
+        res.json({ success: false, message: 'Error submitting request' });
+    }
+});
+
+// User request to sell coins
+app.post('/requestSellCoins', requireLogin, async (req, res) => {
+    const { coins } = req.body;
+    const userEmail = req.session.user;
+    
+    if (!coins || coins < 1) {
+        return res.json({ success: false, message: 'Please enter valid number of coins' });
+    }
+    
+    try {
+        const user = await usersCollection.findOne({ email: userEmail });
+        const currentBalance = user.coinBalance || 0;
+        
+        if (coins > currentBalance) {
+            return res.json({ success: false, message: `You only have ${currentBalance} S-Coins` });
+        }
+        
+        const settings = await db.collection('coinsettings').findOne({ _id: 'settings' });
+        const price = settings?.currentPrice || 10;
+        const totalAmount = coins * price;
+        
+        if (!user.withdrawalMethod || !user.withdrawalAccount) {
+            return res.json({ success: false, message: 'Please save your withdrawal information first in Profile' });
+        }
+        
+        const transaction = {
+            id: Date.now().toString(),
+            type: 'sell_request',
+            coins: parseInt(coins),
+            price: price,
+            amount: totalAmount,
+            status: 'pending',
+            requestedAt: new Date().toISOString(),
+            approvedAt: null,
+            withdrawalMethod: user.withdrawalMethod,
+            withdrawalAccount: user.withdrawalAccount,
+            accountHolderName: user.accountHolderName
+        };
+        
+        const coinTransactions = user.coinTransactions || [];
+        coinTransactions.push(transaction);
+        
+        await usersCollection.updateOne(
+            { email: userEmail },
+            { $set: { coinTransactions: coinTransactions } }
+        );
+        
+        res.json({ success: true, message: `Sell request for ${coins} S-Coins submitted! Admin will process within 24 hours.` });
+    } catch (error) {
+        console.error('Sell coins error:', error);
+        res.json({ success: false, message: 'Error submitting request' });
+    }
+});
+
+// Admin approve coin purchase
+app.post('/approveCoinPurchase', requireAdmin, async (req, res) => {
+    const { email, transactionId, approve } = req.body;
+    
+    if (!email || !transactionId) {
+        return res.json({ success: false, message: 'Missing information' });
+    }
+    
+    try {
+        const user = await usersCollection.findOne({ email });
+        if (!user) return res.json({ success: false, message: 'User not found' });
+        
+        const transactions = user.coinTransactions || [];
+        const transactionIndex = transactions.findIndex(t => t.id === transactionId);
+        
+        if (transactionIndex === -1) {
+            return res.json({ success: false, message: 'Transaction not found' });
+        }
+        
+        if (approve) {
+            const transaction = transactions[transactionIndex];
+            const newBalance = (user.coinBalance || 0) + transaction.coins;
+            
+            transactions[transactionIndex].status = 'approved';
+            transactions[transactionIndex].approvedAt = new Date().toISOString();
+            
+            await usersCollection.updateOne(
+                { email },
+                { 
+                    $set: { 
+                        coinBalance: newBalance,
+                        coinTransactions: transactions
+                    }
+                }
+            );
+            
+            await updateCompanyBalance(transaction.amount, 'collected', `${email} bought ${transaction.coins} S-Coins at ${transaction.price} PKR each`);
+            
+            res.json({ success: true, message: `Approved ${transaction.coins} S-Coins for ${email}` });
+        } else {
+            transactions[transactionIndex].status = 'rejected';
+            await usersCollection.updateOne(
+                { email },
+                { $set: { coinTransactions: transactions } }
+            );
+            res.json({ success: true, message: `Rejected coin purchase for ${email}` });
+        }
+    } catch (error) {
+        console.error('Approve coin error:', error);
+        res.json({ success: false, message: 'Error processing approval' });
+    }
+});
+
+// Admin approve coin sell
+app.post('/approveCoinSell', requireAdmin, async (req, res) => {
+    const { email, transactionId, approve } = req.body;
+    
+    if (!email || !transactionId) {
+        return res.json({ success: false, message: 'Missing information' });
+    }
+    
+    try {
+        const user = await usersCollection.findOne({ email });
+        if (!user) return res.json({ success: false, message: 'User not found' });
+        
+        const transactions = user.coinTransactions || [];
+        const transactionIndex = transactions.findIndex(t => t.id === transactionId);
+        
+        if (transactionIndex === -1) {
+            return res.json({ success: false, message: 'Transaction not found' });
+        }
+        
+        if (approve) {
+            const transaction = transactions[transactionIndex];
+            const newBalance = (user.coinBalance || 0) - transaction.coins;
+            
+            if (newBalance < 0) {
+                return res.json({ success: false, message: 'Insufficient coin balance' });
+            }
+            
+            transactions[transactionIndex].status = 'completed';
+            transactions[transactionIndex].approvedAt = new Date().toISOString();
+            
+            await usersCollection.updateOne(
+                { email },
+                { 
+                    $set: { 
+                        coinBalance: newBalance,
+                        coinTransactions: transactions
+                    }
+                }
+            );
+            
+            await updateCompanyBalance(transaction.amount, 'paid', `${email} sold ${transaction.coins} S-Coins at ${transaction.price} PKR each`);
+            
+            res.json({ success: true, message: `Approved sell of ${transaction.coins} S-Coins for ${email}. Amount ${transaction.amount} PKR to be sent to ${transaction.withdrawalMethod}: ${transaction.withdrawalAccount}` });
+        } else {
+            transactions[transactionIndex].status = 'rejected';
+            await usersCollection.updateOne(
+                { email },
+                { $set: { coinTransactions: transactions } }
+            );
+            res.json({ success: true, message: `Rejected coin sell for ${email}` });
+        }
+    } catch (error) {
+        console.error('Approve sell error:', error);
+        res.json({ success: false, message: 'Error processing approval' });
+    }
+});
+
+// Get pending coin transactions for admin
+app.get('/getPendingCoinTransactions', requireAdmin, async (req, res) => {
+    try {
+        const users = await usersCollection.find({}).toArray();
+        const pendingBuys = [];
+        const pendingSells = [];
+        
+        for (const user of users) {
+            const transactions = user.coinTransactions || [];
+            for (const txn of transactions) {
+                if (txn.status === 'pending') {
+                    if (txn.type === 'buy_request') {
+                        pendingBuys.push({
+                            email: user.email,
+                            transactionId: txn.id,
+                            coins: txn.coins,
+                            price: txn.price,
+                            amount: txn.amount,
+                            proofUrl: txn.proofUrl,
+                            requestedAt: txn.requestedAt
+                        });
+                    } else if (txn.type === 'sell_request') {
+                        pendingSells.push({
+                            email: user.email,
+                            transactionId: txn.id,
+                            coins: txn.coins,
+                            price: txn.price,
+                            amount: txn.amount,
+                            withdrawalMethod: txn.withdrawalMethod,
+                            withdrawalAccount: txn.withdrawalAccount,
+                            accountHolderName: txn.accountHolderName,
+                            requestedAt: txn.requestedAt
+                        });
+                    }
+                }
+            }
+        }
+        
+        res.json({ success: true, pendingBuys, pendingSells });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// Get all coin transactions for admin
+app.get('/getAllCoinTransactions', requireAdmin, async (req, res) => {
+    try {
+        const users = await usersCollection.find({}).toArray();
+        const allTransactions = [];
+        
+        for (const user of users) {
+            const transactions = user.coinTransactions || [];
+            for (const txn of transactions) {
+                allTransactions.push({
+                    email: user.email,
+                    ...txn
+                });
+            }
+        }
+        
+        allTransactions.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+        res.json({ success: true, transactions: allTransactions });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
 // ===== START SERVER =====
 connectDB().then((connected) => {
     if (connected) {
@@ -747,8 +1078,9 @@ connectDB().then((connected) => {
             console.log(`💰 Currency: PKR`);
             console.log(`📊 Plans: 500, 1000, 1500 PKR`);
             console.log(`🎬 Video Commission: 30/40/50 PKR per video`);
-            console.log(`👥 Referral Commission: 50/80/100 PKR (auto when child gets video access)`);
+            console.log(`👥 Referral Commission: 50/80/100 PKR`);
             console.log(`🎲 Lucky Draw: Active`);
+            console.log(`🪙 S-Coin System: Active`);
             console.log(`🔐 Admin: ${ADMIN_EMAIL}`);
         });
     } else {

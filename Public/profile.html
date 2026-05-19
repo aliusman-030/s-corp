@@ -36,47 +36,6 @@
             margin: 20px 0;
         }
         
-        /* Notice Box Styles */
-        .notice-card {
-            background: linear-gradient(135deg, #0a2a3a 0%, #0a1a2a 100%);
-            border: 2px solid #00bcd4;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 5px 20px rgba(0, 188, 212, 0.1);
-        }
-        .notice-card h2 {
-            color: #00bcd4;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border-bottom: none;
-            padding-bottom: 0;
-        }
-        .notice-content {
-            background: rgba(0, 188, 212, 0.05);
-            padding: 18px;
-            border-radius: 8px;
-            border-left: 4px solid #00bcd4;
-        }
-        .notice-content p {
-            color: #ddd;
-            line-height: 1.6;
-            margin-bottom: 12px;
-        }
-        .notice-warning {
-            background: rgba(255, 165, 2, 0.1);
-            padding: 10px;
-            border-radius: 6px;
-            margin-top: 10px;
-        }
-        .notice-warning p {
-            color: #ffa502;
-            margin-bottom: 0;
-            font-size: 14px;
-        }
-        
         .cards-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -167,6 +126,8 @@
         .btn-secondary:hover { background: #444; }
         .btn-danger { background: #8B0000; }
         .btn-danger:hover { background: #660000; }
+        .btn-success { background: #2e7d32; }
+        .btn-success:hover { background: #1b5e20; }
         
         .alert {
             padding: 15px;
@@ -206,6 +167,24 @@
         .upload-name { color: white; font-weight: 500; word-break: break-all; }
         .upload-meta { color: #aaa; font-size: 14px; }
         
+        .coin-section {
+            background: #1a2a1a;
+            border: 1px solid #4CAF50;
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .coin-price {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ff0000;
+        }
+        .coin-balance {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
         .hidden { display: none; }
         
         @media (max-width: 768px) {
@@ -236,28 +215,6 @@
         </div>
 
         <div id="alertMessage" class="alert" style="display: none;"></div>
-
-        <!-- NOTICE BOX - Added at the top -->
-        <div class="notice-card">
-            <h2>
-                <span>📢</span> Important Notice
-            </h2>
-            <div class="notice-content">
-                <p>
-                    <strong>💰 How Withdrawals Work:</strong>
-                </p>
-                <p>
-                    The amount submitted to <strong>Company Balance</strong> is actually the balance given to users who have been 
-                    working for a longer period. They receive their withdrawals from new user's submissions. 
-                    This ensures a sustainable earning system for all members.
-                </p>
-                <div class="notice-warning">
-                    <p>
-                        ⚠️ Please note: Withdrawals are processed in order and may take 24-48 hours for approval after request.
-                    </p>
-                </div>
-            </div>
-        </div>
 
         <div class="cards-grid">
             <div class="card">
@@ -337,6 +294,14 @@
                 </div>
             </div>
 
+            <!-- S-Coin Wallet Card -->
+            <div class="card">
+                <h2>🪙 S-Coin Wallet</h2>
+                <div id="coinWalletContainer">
+                    <div style="text-align: center; padding: 20px;">Loading...</div>
+                </div>
+            </div>
+
             <div class="card" style="border: 2px solid #8B0000; background: #2a1a1a;">
                 <h2 style="color: #ff0000;">⚠️ Danger Zone</h2>
                 <button class="btn btn-danger" id="deleteAccountBtn" style="width: 100%;" onclick="confirmDeleteAccount()">Delete My Account</button>
@@ -346,6 +311,7 @@
 
     <script>
         let userData = null;
+        let coinPrice = 0;
 
         function showAlert(message, type) {
             const alertDiv = document.getElementById('alertMessage');
@@ -362,6 +328,7 @@
                 userData = await res.json();
                 updateProfile(userData);
                 if (userData.isAdmin) document.getElementById('adminLink').classList.remove('hidden');
+                loadCoinWallet();
             } catch(e) { console.error(e); }
         }
 
@@ -489,6 +456,182 @@
             } catch(e) { console.error(e); }
         }
 
+        // ===== S-COIN FUNCTIONS =====
+        async function loadCoinWallet() {
+            try {
+                const priceRes = await fetch('/getCoinSettings');
+                const priceData = await priceRes.json();
+                if (priceData.success) {
+                    coinPrice = priceData.currentPrice;
+                }
+                
+                const res = await fetch('/profileData');
+                const data = await res.json();
+                displayCoinWallet(data);
+            } catch(error) {
+                console.error('Error loading coin wallet:', error);
+                document.getElementById('coinWalletContainer').innerHTML = '<div style="text-align: center; padding: 20px; color: #ff0000;">Error loading wallet</div>';
+            }
+        }
+
+        function displayCoinWallet(data) {
+            const coinBalance = data.coinBalance || 0;
+            const valueInPKR = coinBalance * coinPrice;
+            const transactions = data.coinTransactions || [];
+            const pendingBuys = transactions.filter(t => t.type === 'buy_request' && t.status === 'pending');
+            const pendingSells = transactions.filter(t => t.type === 'sell_request' && t.status === 'pending');
+            
+            let historyHtml = '';
+            if (transactions.length > 0) {
+                historyHtml = '<div style="margin-top: 20px;"><h3>📜 Transaction History</h3><div style="max-height: 300px; overflow-y: auto;">';
+                for (let i = transactions.length - 1; i >= 0; i--) {
+                    const t = transactions[i];
+                    let statusColor = '#ffa502';
+                    let statusText = '⏳ Pending';
+                    if (t.status === 'approved' || t.status === 'completed') {
+                        statusColor = '#4CAF50';
+                        statusText = '✅ Completed';
+                    } else if (t.status === 'rejected') {
+                        statusColor = '#f44336';
+                        statusText = '❌ Rejected';
+                    }
+                    historyHtml += `<div style="background: #333; padding: 10px; margin-bottom: 10px; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>${t.type === 'buy_request' ? '📥 Buy Request' : '📤 Sell Request'}</span>
+                            <span style="color: ${statusColor};">${statusText}</span>
+                        </div>
+                        <div>${t.coins} S-Coins at ${t.price} PKR = ${t.amount} PKR</div>
+                        <div style="font-size: 12px; color: #aaa;">${new Date(t.requestedAt).toLocaleString()}</div>
+                    </div>`;
+                }
+                historyHtml += '</div></div>';
+            }
+            
+            let pendingHtml = '';
+            if (pendingBuys.length > 0 || pendingSells.length > 0) {
+                pendingHtml = '<div style="background: #1a3c3c; padding: 10px; border-radius: 8px; margin-bottom: 15px;"><span style="color: #00bcd4;">⏳ You have pending requests. Please wait for admin approval.</span></div>';
+            }
+            
+            document.getElementById('coinWalletContainer').innerHTML = `
+                <div style="background: #333; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="font-size: 14px; color: #aaa;">Current S-Coin Price</div>
+                    <div class="coin-price">${coinPrice} PKR</div>
+                </div>
+                <div style="background: #333; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="font-size: 14px; color: #aaa;">Your S-Coins</div>
+                    <div class="coin-balance">${coinBalance} S</div>
+                    <div style="font-size: 14px; color: #aaa;">Value: ${valueInPKR.toFixed(2)} PKR</div>
+                </div>
+                
+                <div style="background: #1a2a1a; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h3 style="margin-bottom: 15px;">📥 Buy S-Coins</h3>
+                    <div class="form-group">
+                        <label class="form-label">Number of S-Coins (1-1000)</label>
+                        <input type="number" class="form-input" id="buyCoinsAmount" min="1" max="1000" placeholder="Enter number of coins">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Payment Proof</label>
+                        <input type="file" class="form-input" id="buyCoinProof" accept="image/*,.pdf">
+                    </div>
+                    <button class="btn btn-success" onclick="submitBuyCoins()" style="width: 100%;">💰 Request to Buy</button>
+                </div>
+                
+                <div style="background: #1a1a2a; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h3 style="margin-bottom: 15px;">📤 Sell S-Coins</h3>
+                    <div class="form-group">
+                        <label class="form-label">Number of S-Coins (Max: ${coinBalance})</label>
+                        <input type="number" class="form-input" id="sellCoinsAmount" min="1" max="${coinBalance}" placeholder="Enter number of coins">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">You will receive</label>
+                        <div class="info-value" id="sellAmountPreview">0 PKR</div>
+                    </div>
+                    <button class="btn btn-success" onclick="submitSellCoins()" style="width: 100%;" ${coinBalance === 0 ? 'disabled' : ''}>💸 Request to Sell</button>
+                </div>
+                
+                ${pendingHtml}
+                ${historyHtml}
+            `;
+            
+            // Update sell preview
+            const sellInput = document.getElementById('sellCoinsAmount');
+            if (sellInput) {
+                sellInput.addEventListener('input', function() {
+                    const coins = parseInt(this.value) || 0;
+                    const preview = document.getElementById('sellAmountPreview');
+                    if (preview) preview.textContent = (coins * coinPrice).toFixed(2) + ' PKR';
+                });
+            }
+        }
+
+        async function submitBuyCoins() {
+            const coins = document.getElementById('buyCoinsAmount').value;
+            const proof = document.getElementById('buyCoinProof').files[0];
+            
+            if (!coins || coins < 1 || coins > 1000) {
+                showAlert('Please enter number of coins between 1 and 1000', 'error');
+                return;
+            }
+            
+            if (!proof) {
+                showAlert('Please upload payment proof', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('coins', coins);
+            formData.append('media', proof);
+            
+            try {
+                const res = await fetch('/requestBuyCoins', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    document.getElementById('buyCoinsAmount').value = '';
+                    document.getElementById('buyCoinProof').value = '';
+                    loadCoinWallet();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            } catch(e) {
+                showAlert('Error submitting request', 'error');
+            }
+        }
+
+        async function submitSellCoins() {
+            const coins = document.getElementById('sellCoinsAmount').value;
+            
+            if (!coins || coins < 1) {
+                showAlert('Please enter number of coins', 'error');
+                return;
+            }
+            
+            if (!confirm(`Sell ${coins} S-Coins for ${coins * coinPrice} PKR? This will be sent to your saved withdrawal account.`)) {
+                return;
+            }
+            
+            try {
+                const res = await fetch('/requestSellCoins', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ coins: parseInt(coins) })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    document.getElementById('sellCoinsAmount').value = '';
+                    loadCoinWallet();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            } catch(e) {
+                showAlert('Error submitting request', 'error');
+            }
+        }
+
         function confirmDeleteAccount() {
             if (confirm('⚠️ WARNING: This will permanently delete your account! Type "DELETE" to confirm.')) {
                 const confirmText = prompt('Type "DELETE" to confirm:');
@@ -509,7 +652,9 @@
             } catch(e) { showAlert('Error deleting account', 'error'); }
         }
 
-        document.addEventListener('DOMContentLoaded', () => loadProfileData());
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProfileData();
+        });
     </script>
 </body>
 </html>

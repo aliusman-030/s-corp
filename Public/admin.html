@@ -122,7 +122,7 @@
         }
         
         .tab {
-            padding: 15px 25px;
+            padding: 15px 20px;
             background: none;
             border: none;
             color: #aaa;
@@ -322,7 +322,7 @@
     <div class="container">
         <div class="admin-header">
             <h1>Admin Panel</h1>
-            <p>Manage users, grant video access, process payments, and manage lucky draw</p>
+            <p>Manage users, grant video access, process payments, manage lucky draw, and manage S-Coin</p>
         </div>
 
         <div id="alertMessage" class="alert" style="display: none;"></div>
@@ -352,10 +352,11 @@
         </div>
 
         <div class="tabs">
-            <button class="tab active" data-tab="users">👥 Users Management</button>
+            <button class="tab active" data-tab="users">👥 Users</button>
             <button class="tab" data-tab="videos">🎬 Videos</button>
             <button class="tab" data-tab="payment">🏦 Payment Methods</button>
             <button class="tab" data-tab="luckydraw">🎲 Lucky Draw</button>
+            <button class="tab" data-tab="coins">🪙 S-Coin</button>
         </div>
 
         <!-- Users Tab -->
@@ -371,9 +372,10 @@
                             <th>Email</th>
                             <th>Plan</th>
                             <th>Balance (PKR)</th>
+                            <th>S-Coins</th>
                             <th>Withdraw Limit</th>
                             <th>Referral Earnings</th>
-                            <th>Referrals Total</th>
+                            <th>Referrals</th>
                             <th>With Plan</th>
                             <th>Without Plan</th>
                             <th>Payment Proof</th>
@@ -384,7 +386,7 @@
                         </tr>
                     </thead>
                     <tbody id="usersTableBody">
-                        <tr><td colspan="13" style="text-align: center;">Loading users...</td></tr>
+                        <tr><td colspan="14" style="text-align: center;">Loading users...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -482,6 +484,56 @@
                 </div>
             </div>
         </div>
+
+        <!-- S-Coin Management Tab -->
+        <div class="tab-content" id="coins-tab">
+            <h3 style="color: white; margin-bottom: 20px;">🪙 S-Coin Management</h3>
+            
+            <div class="card" style="margin-bottom: 20px; padding: 20px; background: #2a2a2a; border-radius: 12px;">
+                <h3>Coin Price Settings</h3>
+                <div class="form-group">
+                    <label class="form-label">Current S-Coin Price (PKR)</label>
+                    <input type="number" class="form-input" id="coinPrice" step="1" min="1" placeholder="Enter price per coin">
+                </div>
+                <button class="btn btn-success" onclick="updateCoinPrice()">💾 Update Coin Price</button>
+            </div>
+            
+            <div class="card" style="margin-bottom: 20px; padding: 20px; background: #2a2a2a; border-radius: 12px;">
+                <h3>📥 Pending Buy Requests</h3>
+                <div id="pendingBuysContainer">
+                    <div style="text-align: center; padding: 20px;">Loading...</div>
+                </div>
+            </div>
+            
+            <div class="card" style="margin-bottom: 20px; padding: 20px; background: #2a2a2a; border-radius: 12px;">
+                <h3>📤 Pending Sell Requests</h3>
+                <div id="pendingSellsContainer">
+                    <div style="text-align: center; padding: 20px;">Loading...</div>
+                </div>
+            </div>
+            
+            <div class="card" style="padding: 20px; background: #2a2a2a; border-radius: 12px;">
+                <h3>📜 All Coin Transactions</h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Type</th>
+                                <th>Coins</th>
+                                <th>Price</th>
+                                <th>Amount (PKR)</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allCoinTransactionsBody">
+                            <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -509,6 +561,7 @@
                 if (this.dataset.tab === 'videos') loadVideos();
                 if (this.dataset.tab === 'payment') loadPaymentMethods();
                 if (this.dataset.tab === 'luckydraw') loadLuckyDrawSelections();
+                if (this.dataset.tab === 'coins') { loadCoinSettings(); loadPendingTransactions(); loadAllCoinTransactions(); }
             });
         });
 
@@ -548,7 +601,7 @@
             const filtered = users.filter(u => u.email !== 'admin@site.com' && u.email.toLowerCase().includes(searchTerm));
             
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="13" style="text-align: center;">No users found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="14" style="text-align: center;">No users found</td></tr>';
                 return;
             }
             
@@ -599,6 +652,7 @@
                     <td style="white-space: nowrap;">${user.email}<br><span style="font-size: 10px; color: #666;">Referred by: ${user.referredBy || 'None'}</span></td>
                     <td>${user.plan || '-'}</td>
                     <td><strong>${user.amount} PKR</strong></td>
+                    <td><strong style="color: #4CAF50;">${user.coinBalance || 0} S</strong></td>
                     <td>${user.withdrawalLimit} PKR</td>
                     <td><strong style="color: #4CAF50;">${user.referralEarnings || 0} PKR</strong></td>
                     <td>${user.totalReferralsAdded || 0}</td>
@@ -887,12 +941,174 @@
             } catch(e) { console.error(e); }
         }
 
+        // ===== S-COIN MANAGEMENT FUNCTIONS =====
+
+        async function updateCoinPrice() {
+            const price = document.getElementById('coinPrice').value;
+            
+            if (!price || price < 1) {
+                showAlert('Please enter a valid price (minimum 1 PKR)', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/setCoinPrice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ price: parseInt(price) })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    loadCoinSettings();
+                    loadPendingTransactions();
+                    loadAllCoinTransactions();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            } catch(e) {
+                showAlert('Error updating price', 'error');
+            }
+        }
+
+        async function loadCoinSettings() {
+            try {
+                const res = await fetch('/getCoinSettings');
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('coinPrice').value = data.currentPrice;
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function loadPendingTransactions() {
+            try {
+                const res = await fetch('/getPendingCoinTransactions');
+                const data = await res.json();
+                
+                if (data.success) {
+                    // Pending Buys
+                    const buysContainer = document.getElementById('pendingBuysContainer');
+                    if (data.pendingBuys.length === 0) {
+                        buysContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">No pending buy requests</div>';
+                    } else {
+                        let html = '<div class="table-container"><table class="data-table"><thead><tr><th>User</th><th>Coins</th><th>Price</th><th>Amount</th><th>Proof</th><th>Actions</th></tr></thead><tbody>';
+                        for (const buy of data.pendingBuys) {
+                            html += `<tr>
+                                <td>${buy.email}</td>
+                                <td>${buy.coins}</td>
+                                <td>${buy.price} PKR</td>
+                                <td>${buy.amount} PKR</td>
+                                <td><a href="${buy.proofUrl}" target="_blank" class="upload-link">📎 View Proof</a></td>
+                                <td>
+                                    <button class="btn btn-success btn-sm" onclick="approveCoinTransaction('${buy.email}', '${buy.transactionId}', 'buy', true)">✅ Approve</button>
+                                    <button class="btn btn-danger btn-sm" onclick="approveCoinTransaction('${buy.email}', '${buy.transactionId}', 'buy', false)">❌ Reject</button>
+                                </td>
+                            </tr>`;
+                        }
+                        html += '</tbody></table></div>';
+                        buysContainer.innerHTML = html;
+                    }
+                    
+                    // Pending Sells
+                    const sellsContainer = document.getElementById('pendingSellsContainer');
+                    if (data.pendingSells.length === 0) {
+                        sellsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">No pending sell requests</div>';
+                    } else {
+                        let html = '<div class="table-container"><table class="data-table"><thead><tr><th>User</th><th>Coins</th><th>Price</th><th>Amount</th><th>Withdraw Account</th><th>Actions</th></tr></thead><tbody>';
+                        for (const sell of data.pendingSells) {
+                            html += `<tr>
+                                <td>${sell.email}</td>
+                                <td>${sell.coins}</td>
+                                <td>${sell.price} PKR</td>
+                                <td>${sell.amount} PKR</td>
+                                <td><strong>${sell.withdrawalMethod}</strong><br>${sell.withdrawalAccount}<br><span style="font-size: 11px;">${sell.accountHolderName || ''}</span></td>
+                                <td>
+                                    <button class="btn btn-success btn-sm" onclick="approveCoinTransaction('${sell.email}', '${sell.transactionId}', 'sell', true)">✅ Approve & Pay</button>
+                                    <button class="btn btn-danger btn-sm" onclick="approveCoinTransaction('${sell.email}', '${sell.transactionId}', 'sell', false)">❌ Reject</button>
+                                </td>
+                            </tr>`;
+                        }
+                        html += '</tbody></table></div>';
+                        sellsContainer.innerHTML = html;
+                    }
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function approveCoinTransaction(email, transactionId, type, approve) {
+            const action = approve ? 'approve' : 'reject';
+            if (!confirm(`Are you sure you want to ${action} this ${type} request for ${email}?`)) return;
+            
+            try {
+                let endpoint = type === 'buy' ? '/approveCoinPurchase' : '/approveCoinSell';
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, transactionId, approve })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    loadPendingTransactions();
+                    loadAllCoinTransactions();
+                    loadUsers();
+                    loadCompanyBalance();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            } catch(e) {
+                showAlert('Error processing request', 'error');
+            }
+        }
+
+        async function loadAllCoinTransactions() {
+            try {
+                const res = await fetch('/getAllCoinTransactions');
+                const data = await res.json();
+                const tbody = document.getElementById('allCoinTransactionsBody');
+                
+                if (!data.success || data.transactions.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No transactions found</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = '';
+                for (const txn of data.transactions) {
+                    let statusColor = '#ffa502';
+                    let statusText = 'Pending';
+                    if (txn.status === 'approved' || txn.status === 'completed') {
+                        statusColor = '#4CAF50';
+                        statusText = 'Completed';
+                    } else if (txn.status === 'rejected') {
+                        statusColor = '#f44336';
+                        statusText = 'Rejected';
+                    }
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${txn.email}</td>
+                        <td>${txn.type === 'buy_request' ? '📥 Buy' : '📤 Sell'}</td>
+                        <td>${txn.coins} S</td>
+                        <td>${txn.price} PKR</td>
+                        <td>${txn.amount} PKR</td>
+                        <td><span style="color: ${statusColor};">${statusText}</span></td>
+                        <td>${new Date(txn.requestedAt).toLocaleString()}</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            } catch(e) { console.error(e); }
+        }
+
         function refreshData() {
             loadCompanyBalance();
             loadUsers();
             loadVideos();
             loadPaymentMethods();
             loadLuckyDrawSelections();
+            loadCoinSettings();
+            loadPendingTransactions();
+            loadAllCoinTransactions();
             showAlert('All data refreshed', 'success');
         }
 
