@@ -255,7 +255,9 @@
             <div style="margin-top: 20px;">
                 <p style="color: #ff0000; font-weight: bold;">💵 Referral Commission:</p>
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                    <thead><tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></tr></thead>
+                    <thead>
+                        <tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></tr>
+                    </thead>
                     <tbody>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 1 (500 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">50 PKR</td></tr>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 2 (1000 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">80 PKR</td></tr>
@@ -281,46 +283,45 @@
         };
 
         function showAlert(message, type) {
-            const alertDiv = document.getElementById('alertMessage');
+            var alertDiv = document.getElementById('alertMessage');
             alertDiv.textContent = message;
-            alertDiv.className = `alert alert-${type}`;
+            alertDiv.className = 'alert alert-' + type;
             alertDiv.style.display = 'block';
-            setTimeout(() => { alertDiv.style.display = 'none'; }, 5000);
+            setTimeout(function() { alertDiv.style.display = 'none'; }, 5000);
         }
 
         function copyReferralLink() {
-            navigator.clipboard.writeText(document.getElementById('referralLink').textContent);
+            var link = document.getElementById('referralLink').textContent;
+            navigator.clipboard.writeText(link);
             showAlert('Referral link copied!', 'success');
         }
 
-        function refreshData() { loadProfileData(); loadDepositMethods(); }
+        function refreshData() { 
+            loadProfileData(); 
+            loadDepositMethods(); 
+        }
 
         async function loadDepositMethods() {
             try {
-                const res = await fetch('/getDepositMethods');
-                const methods = await res.json();
-                const container = document.getElementById('depositMethods');
+                var res = await fetch('/getDepositMethods');
+                var methods = await res.json();
+                var container = document.getElementById('depositMethods');
                 if (!methods || methods.length === 0) {
                     container.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">No deposit methods available</div>';
                     return;
                 }
-                let html = '';
-                methods.forEach(m => {
-                    html += `
-                        <div class="method-card">
-                            <div class="method-name">${m.name}</div>
-                            <div class="method-number">${m.number}</div>
-                            <button class="copy-btn" onclick="navigator.clipboard.writeText('${m.number}'); showAlert('Copied!', 'success')">Copy Number</button>
-                        </div>
-                    `;
-                });
+                var html = '';
+                for (var i = 0; i < methods.length; i++) {
+                    var m = methods[i];
+                    html = html + '<div class="method-card"><div class="method-name">' + m.name + '</div><div class="method-number">' + m.number + '</div><button class="copy-btn" onclick="navigator.clipboard.writeText(\'' + m.number + '\'); showAlert(\'Copied!\', \'success\')">Copy Number</button></div>';
+                }
                 container.innerHTML = html;
             } catch(e) { console.error(e); }
         }
 
         async function loadProfileData() {
             try {
-                const res = await fetch('/profileData');
+                var res = await fetch('/profileData');
                 if (!res.ok) { window.location.href = '/login.html'; return; }
                 userData = await res.json();
                 updateDashboard(userData);
@@ -330,18 +331,18 @@
 
         function updateDashboard(data) {
             document.getElementById('userEmail').textContent = data.email;
-            document.getElementById('referralLink').textContent = `${window.location.origin}/signup.html?ref=${data.referral}`;
+            document.getElementById('referralLink').textContent = window.location.origin + '/signup.html?ref=' + data.referral;
             
-            const balance = parseFloat(data.amount);
-            const limit = parseFloat(data.withdrawalLimit);
+            var balance = parseFloat(data.amount);
+            var limit = parseFloat(data.withdrawalLimit);
             document.getElementById('currentBalance').textContent = balance.toFixed(2);
-            document.getElementById('withdrawalLimit').textContent = `${limit.toFixed(2)} PKR`;
+            document.getElementById('withdrawalLimit').textContent = limit.toFixed(2) + ' PKR';
             
-            const progress = limit > 0 ? Math.min((balance / limit) * 100, 100) : 0;
-            document.getElementById('withdrawalProgress').style.width = `${progress}%`;
+            var progress = limit > 0 ? Math.min((balance / limit) * 100, 100) : 0;
+            document.getElementById('withdrawalProgress').style.width = progress + '%';
             
-            const withdrawBtn = document.getElementById('requestWithdrawalBtn');
-            const eligibilityDiv = document.getElementById('withdrawEligibility');
+            var withdrawBtn = document.getElementById('requestWithdrawalBtn');
+            var eligibilityDiv = document.getElementById('withdrawEligibility');
             
             if (balance >= limit && limit > 0 && data.withdrawalMethod) {
                 eligibilityDiv.innerHTML = '<span style="color: #4CAF50;">✓ Eligible for withdrawal!</span>';
@@ -350,30 +351,24 @@
                 eligibilityDiv.innerHTML = '<span style="color: #ff0000;">Please save withdrawal info in Profile</span>';
                 withdrawBtn.style.display = 'none';
             } else {
-                eligibilityDiv.innerHTML = `Need <span style="color: #ff0000;">${(limit - balance).toFixed(2)} PKR</span> more`;
+                eligibilityDiv.innerHTML = 'Need <span style="color: #ff0000;">' + (limit - balance).toFixed(2) + ' PKR</span> more';
                 withdrawBtn.style.display = 'none';
             }
             
-            document.getElementById('dailyVideos').textContent = `${data.dailyVideosWatched || 0}/${data.dailyVideoLimit || 0}`;
+            document.getElementById('dailyVideos').textContent = (data.dailyVideosWatched || 0) + '/' + (data.dailyVideoLimit || 0);
             document.getElementById('totalReferrals').textContent = data.totalReferralsAdded || 0;
-            document.getElementById('videoEarnings').textContent = `${data.videoEarnings || 0} PKR`;
-            document.getElementById('referralEarnings').textContent = `${data.referralEarnings || 0} PKR`;
+            document.getElementById('videoEarnings').textContent = (data.videoEarnings || 0) + ' PKR';
+            document.getElementById('referralEarnings').textContent = (data.referralEarnings || 0) + ' PKR';
             
             if (data.plan && data.plan !== '') {
-                const plan = PLANS[data.plan];
-                document.getElementById('currentPlanInfo').innerHTML = `
-                    <div style="text-align: center;">
-                        <div style="font-size: 24px; color: #ff0000; font-weight: bold;">${data.plan}</div>
-                        <div style="font-size: 20px; margin: 10px 0;">${plan.price} PKR</div>
-                        <div style="color: #4CAF50;">✓ ${data.grantedVideos ? 'Video Access Active' : 'Awaiting Payment Approval'}</div>
-                    </div>
-                `;
+                var plan = PLANS[data.plan];
+                document.getElementById('currentPlanInfo').innerHTML = '<div style="text-align: center;"><div style="font-size: 24px; color: #ff0000; font-weight: bold;">' + data.plan + '</div><div style="font-size: 20px; margin: 10px 0;">' + plan.price + ' PKR</div><div style="color: #4CAF50;">✓ ' + (data.grantedVideos ? 'Video Access Active' : 'Awaiting Payment Approval') + '</div></div>';
                 document.getElementById('planVideos').textContent = plan.dailyVideos;
                 document.getElementById('planCommission').textContent = plan.videoCommission;
                 document.getElementById('planWithdrawalLimit').textContent = plan.withdrawalLimit;
                 document.getElementById('planInstructions').style.display = 'block';
                 
-                const accessDiv = document.getElementById('videoAccessStatus');
+                var accessDiv = document.getElementById('videoAccessStatus');
                 if (!data.grantedVideos) {
                     accessDiv.innerHTML = '<div class="alert alert-info" style="display: block; text-align: center;">⏳ Video access pending. Please upload payment proof in Profile.</div>';
                 } else {
@@ -389,41 +384,32 @@
         }
 
         function loadPlans(currentPlan) {
-            const container = document.getElementById('plansContainer');
+            var container = document.getElementById('plansContainer');
             container.innerHTML = '';
             
-            for (const [name, plan] of Object.entries(PLANS)) {
-                const isCurrent = name === currentPlan;
-                const card = document.createElement('div');
-                card.className = `plan-card ${isCurrent ? 'selected' : ''}`;
-                card.innerHTML = `
-                    <div class="plan-name">${name}</div>
-                    <div class="plan-price">${plan.price} PKR</div>
-                    <ul class="plan-features">
-                        <li>${plan.dailyVideos} video${plan.dailyVideos !== 1 ? 's' : ''} per day</li>
-                        <li>${plan.videoCommission} PKR per video watched</li>
-                        <li>Withdrawal limit: ${plan.withdrawalLimit} PKR</li>
-                        <li>Referral commission: ${plan.referralCommission} PKR</li>
-                    </ul>
-                    <button class="btn ${isCurrent ? 'btn-secondary' : ''}" onclick="selectPlan('${name}')" ${isCurrent ? 'disabled' : ''} style="width: 100%;">
-                        ${isCurrent ? 'Current Plan' : 'Select Plan'}
-                    </button>
-                `;
+            var planNames = ['Plan 1', 'Plan 2', 'Plan 3'];
+            for (var i = 0; i < planNames.length; i++) {
+                var name = planNames[i];
+                var plan = PLANS[name];
+                var isCurrent = name === currentPlan;
+                var card = document.createElement('div');
+                card.className = 'plan-card' + (isCurrent ? ' selected' : '');
+                card.innerHTML = '<div class="plan-name">' + name + '</div><div class="plan-price">' + plan.price + ' PKR</div><ul class="plan-features"><li>' + plan.dailyVideos + ' video' + (plan.dailyVideos !== 1 ? 's' : '') + ' per day</li><li>' + plan.videoCommission + ' PKR per video watched</li><li>Withdrawal limit: ' + plan.withdrawalLimit + ' PKR</li><li>Referral commission: ' + plan.referralCommission + ' PKR</li></ul><button class="btn ' + (isCurrent ? 'btn-secondary' : '') + '" onclick="selectPlan(\'' + name + '\')" ' + (isCurrent ? 'disabled' : '') + ' style="width: 100%;">' + (isCurrent ? 'Current Plan' : 'Select Plan') + '</button>';
                 container.appendChild(card);
             }
         }
 
         async function selectPlan(planName) {
-            if (!confirm(`Select ${planName} for ${PLANS[planName].price} PKR?`)) return;
+            if (!confirm('Select ' + planName + ' for ' + PLANS[planName].price + ' PKR?')) return;
             try {
-                const res = await fetch('/selectPlan', {
+                var res = await fetch('/selectPlan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ plan: planName })
                 });
-                const result = await res.json();
+                var result = await res.json();
                 if (result.success) {
-                    showAlert(`${planName} selected! Please deposit ${result.planPrice} PKR and upload payment proof in Profile.`, 'success');
+                    showAlert(planName + ' selected! Please deposit ' + result.planPrice + ' PKR and upload payment proof in Profile.', 'success');
                     loadProfileData();
                 } else {
                     showAlert(result.message, 'error');
@@ -431,15 +417,15 @@
             } catch(e) { showAlert('Error selecting plan', 'error'); }
         }
 
-        document.getElementById('requestWithdrawalBtn').addEventListener('click', async () => {
+        document.getElementById('requestWithdrawalBtn').addEventListener('click', async function() {
             if (!userData.withdrawalMethod) {
                 showAlert('Please save withdrawal info in Profile first!', 'error');
                 return;
             }
             if (!confirm('Request withdrawal? Admin will process your request.')) return;
             try {
-                const res = await fetch('/requestWithdrawal', { method: 'POST' });
-                const result = await res.json();
+                var res = await fetch('/requestWithdrawal', { method: 'POST' });
+                var result = await res.json();
                 if (result.success) {
                     showAlert('Withdrawal requested!', 'success');
                     loadProfileData();
@@ -449,7 +435,7 @@
             } catch(e) { showAlert('Error requesting withdrawal', 'error'); }
         });
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', function() {
             loadProfileData();
             loadDepositMethods();
         });
