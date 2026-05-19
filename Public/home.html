@@ -140,6 +140,53 @@
         .method-number { font-family: monospace; font-size: 18px; background: #222; padding: 10px; border-radius: 4px; margin: 5px 0; }
         .copy-btn { background: #444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
         
+        /* Lucky Draw Styles */
+        .lucky-numbers-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .lucky-number-box {
+            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            border: 2px solid #444;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .lucky-number-box:hover { transform: translateY(-5px); border-color: #ff0000; }
+        .lucky-number-box.selected { border-color: #4CAF50; background: linear-gradient(135deg, #1a3c1a, #0a2a0a); }
+        .lucky-number-box.disabled { opacity: 0.5; cursor: not-allowed; }
+        .lucky-number-box.disabled:hover { transform: none; }
+        .lucky-number { font-size: 32px; font-weight: bold; color: #ff0000; }
+        .winning-badge {
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            color: #000;
+            padding: 15px 20px;
+            border-radius: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .winning-number { font-size: 48px; font-weight: bold; color: #ff0000; }
+        .reward-amount { font-size: 24px; color: #4CAF50; font-weight: bold; }
+        .wins-list {
+            margin-top: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .win-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #444;
+        }
+        .win-item:last-child { border-bottom: none; }
+        .win-date { color: #aaa; font-size: 12px; }
+        .win-reward { color: #4CAF50; font-weight: bold; }
+        
         .alert {
             padding: 15px;
             border-radius: 8px;
@@ -157,6 +204,7 @@
             .stats-grid { grid-template-columns: 1fr; }
             .nav-container { flex-direction: column; gap: 15px; }
             .plans-grid { grid-template-columns: 1fr; }
+            .lucky-numbers-grid { grid-template-columns: repeat(3, 1fr); }
         }
     </style>
 </head>
@@ -255,9 +303,7 @@
             <div style="margin-top: 20px;">
                 <p style="color: #ff0000; font-weight: bold;">💵 Referral Commission:</p>
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                    <thead>
-                        <tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></tr>
-                    </thead>
+                    <thead><tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></tr></thead>
                     <tbody>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 1 (500 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">50 PKR</td></tr>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 2 (1000 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">80 PKR</td></tr>
@@ -271,6 +317,14 @@
         <div class="card" style="margin-top: 20px;">
             <h2>📈 Select or Upgrade Plan</h2>
             <div class="plans-grid" id="plansContainer"></div>
+        </div>
+
+        <!-- Lucky Draw Section -->
+        <div class="card" style="margin-top: 20px;">
+            <h2>🎲 Lucky Draw</h2>
+            <div id="luckyDrawContainer">
+                <div style="text-align: center; padding: 20px;">Loading lucky draw...</div>
+            </div>
         </div>
     </div>
 
@@ -298,7 +352,8 @@
 
         function refreshData() { 
             loadProfileData(); 
-            loadDepositMethods(); 
+            loadDepositMethods();
+            loadLuckyDrawStatus();
         }
 
         async function loadDepositMethods() {
@@ -313,7 +368,7 @@
                 var html = '';
                 for (var i = 0; i < methods.length; i++) {
                     var m = methods[i];
-                    html = html + '<div class="method-card"><div class="method-name">' + m.name + '</div><div class="method-number">' + m.number + '</div><button class="copy-btn" onclick="navigator.clipboard.writeText(\'' + m.number + '\'); showAlert(\'Copied!\', \'success\')">Copy Number</button></div>';
+                    html += '<div class="method-card"><div class="method-name">' + m.name + '</div><div class="method-number">' + m.number + '</div><button class="copy-btn" onclick="navigator.clipboard.writeText(\'' + m.number + '\'); showAlert(\'Copied!\', \'success\')">Copy Number</button></div>';
                 }
                 container.innerHTML = html;
             } catch(e) { console.error(e); }
@@ -435,9 +490,84 @@
             } catch(e) { showAlert('Error requesting withdrawal', 'error'); }
         });
 
+        // ===== LUCKY DRAW FUNCTIONS =====
+        async function loadLuckyDrawStatus() {
+            try {
+                var res = await fetch('/getLuckyDrawStatus');
+                var data = await res.json();
+                if (data.success) {
+                    displayLuckyDraw(data);
+                } else {
+                    document.getElementById('luckyDrawContainer').innerHTML = '<div style="text-align: center; padding: 20px; color: #ff0000;">❌ ' + (data.message || 'Error loading lucky draw') + '</div>';
+                }
+            } catch(error) {
+                console.error('Lucky draw error:', error);
+                document.getElementById('luckyDrawContainer').innerHTML = '<div style="text-align: center; padding: 20px; color: #ff0000;">❌ Failed to load lucky draw</div>';
+            }
+        }
+
+        function displayLuckyDraw(data) {
+            var container = document.getElementById('luckyDrawContainer');
+            
+            var winningHtml = '';
+            if (data.isAnnounced && data.winningNumber) {
+                winningHtml = '<div class="winning-badge"><div>🏆 Today\'s Winning Number 🏆</div><div class="winning-number">' + data.winningNumber + '</div><div>Prize: <span class="reward-amount">' + data.rewardAmount + ' PKR</span></div></div>';
+            } else {
+                winningHtml = '<div class="winning-badge" style="background: #333; color: #fff;"><div>⏰ Next Draw: 11:00 PM Pakistan Time</div><div>Prize: ' + (data.rewardAmount ? data.rewardAmount + ' PKR' : 'Waiting for admin to set prize') + '</div></div>';
+            }
+            
+            var numbersHtml = '<div class="lucky-numbers-grid">';
+            for (var i = 1; i <= 12; i++) {
+                var boxClass = 'lucky-number-box';
+                var isSelected = (data.userSelectedNumber === i);
+                if (isSelected) boxClass += ' selected';
+                if (!data.canSelect || data.isAnnounced) boxClass += ' disabled';
+                
+                var onclickAttr = '';
+                if (data.canSelect && !data.isAnnounced && !isSelected) {
+                    onclickAttr = ' onclick="selectLuckyNumber(' + i + ')"';
+                }
+                numbersHtml += '<div class="' + boxClass + '"' + onclickAttr + '><div class="lucky-number">' + i + '</div>' + (isSelected ? '<div style="font-size: 12px; color: #4CAF50;">✓ Selected</div>' : '') + '</div>';
+            }
+            numbersHtml += '</div>';
+            
+            var winsHtml = '';
+            if (data.wins && data.wins.length > 0) {
+                winsHtml = '<div class="wins-list"><h3 style="margin-bottom: 15px;">🏆 Your Previous Wins</h3>';
+                for (var i = 0; i < data.wins.length; i++) {
+                    var win = data.wins[i];
+                    winsHtml += '<div class="win-item"><div><div>Won for number ' + win.number + '</div><div class="win-date">' + new Date(win.date).toLocaleDateString() + '</div></div><div class="win-reward">+' + win.reward + ' PKR</div></div>';
+                }
+                winsHtml += '</div>';
+            }
+            
+            container.innerHTML = winningHtml + '<div style="text-align: center; margin: 15px 0;"><strong>Pick your lucky number for tomorrow:</strong></div>' + numbersHtml + '<div style="text-align: center; color: #aaa; font-size: 14px; margin-top: 15px;">⏰ You can pick only ONE number per day. Selections reset daily at 11:00 PM PKT.</div>' + winsHtml;
+        }
+
+        async function selectLuckyNumber(number) {
+            if (!confirm('Select number ' + number + ' for tomorrow\'s lucky draw? You cannot change it later.')) return;
+            try {
+                var res = await fetch('/selectLuckyNumber', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number: number })
+                });
+                var result = await res.json();
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    loadLuckyDrawStatus();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            } catch(e) {
+                showAlert('Error selecting number', 'error');
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             loadProfileData();
             loadDepositMethods();
+            loadLuckyDrawStatus();
         });
     </script>
 </body>
