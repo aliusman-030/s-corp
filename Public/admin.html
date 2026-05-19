@@ -5,19 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>S-CORP - Admin Panel</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
-        body { background: #1a1a1a; color: white; min-height: 100vh; }
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        
+        body {
+            background: #1a1a1a;
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
         
         .navbar {
             background: #000;
             padding: 15px 0;
             border-bottom: 2px solid #ff0000;
         }
-        .nav-container { display: flex; justify-content: space-between; align-items: center; }
-        .logo { color: white; font-size: 24px; font-weight: bold; text-decoration: none; }
+        
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        
         .logo span { color: #ff0000; }
+        
         .nav-links { display: flex; gap: 15px; }
+        
         .nav-link {
             color: white;
             text-decoration: none;
@@ -25,6 +54,7 @@
             border-radius: 4px;
             transition: background 0.3s;
         }
+        
         .nav-link:hover { background: #333; }
         .nav-link.active { background: #ff0000; }
         .nav-link.logout { background: #333; color: #ff0000; }
@@ -49,12 +79,24 @@
             padding: 20px;
             border: 1px solid #333;
         }
+        
         .stat-card.company {
             background: linear-gradient(135deg, #222, #000);
             border: 2px solid #ff0000;
         }
-        .stat-card h2 { margin-bottom: 15px; font-size: 18px; }
-        .stat-value { font-size: 32px; font-weight: bold; color: #ff0000; margin-bottom: 5px; }
+        
+        .stat-card h2 {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ff0000;
+            margin-bottom: 5px;
+        }
+        
         .stat-label { color: #aaa; font-size: 14px; }
         
         .plan-stats {
@@ -63,6 +105,7 @@
             margin-top: 15px;
             flex-wrap: wrap;
         }
+        
         .plan-stat {
             background: #333;
             padding: 15px;
@@ -75,18 +118,21 @@
             display: flex;
             background: #222;
             border-radius: 8px 8px 0 0;
-            overflow: hidden;
+            overflow-x: auto;
         }
+        
         .tab {
             padding: 15px 25px;
             background: none;
             border: none;
             color: #aaa;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
             transition: all 0.3s;
             border-bottom: 3px solid transparent;
+            white-space: nowrap;
         }
+        
         .tab:hover { background: #333; color: white; }
         .tab.active {
             background: #333;
@@ -102,14 +148,17 @@
             border: 1px solid #333;
             border-top: none;
         }
+        
         .tab-content.active { display: block; }
         
         .table-container { overflow-x: auto; margin-top: 20px; }
+        
         .data-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
         }
+        
         .data-table th {
             background: #333;
             color: white;
@@ -118,11 +167,13 @@
             border-bottom: 2px solid #ff0000;
             white-space: nowrap;
         }
+        
         .data-table td {
             padding: 12px;
             border-bottom: 1px solid #444;
             color: #ccc;
         }
+        
         .data-table tr:hover { background: #2a2a2a; }
         
         .badge {
@@ -132,6 +183,7 @@
             font-size: 11px;
             font-weight: bold;
         }
+        
         .badge-success { background: #1a3c1a; color: #4CAF50; }
         .badge-warning { background: #3c3c1a; color: #FFD700; }
         .badge-danger { background: #3c1a1a; color: #f44336; }
@@ -143,7 +195,13 @@
             width: 50px;
             height: 24px;
         }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
         .toggle-slider {
             position: absolute;
             cursor: pointer;
@@ -155,6 +213,7 @@
             transition: 0.3s;
             border-radius: 24px;
         }
+        
         .toggle-slider:before {
             position: absolute;
             content: "";
@@ -166,6 +225,7 @@
             transition: 0.3s;
             border-radius: 50%;
         }
+        
         input:checked + .toggle-slider { background-color: #2e7d32; }
         input:checked + .toggle-slider:before { transform: translateX(26px); }
         
@@ -179,6 +239,7 @@
             font-size: 13px;
             transition: background 0.3s;
         }
+        
         .btn:hover { background: #cc0000; }
         .btn-sm { padding: 6px 12px; font-size: 11px; }
         .btn-success { background: #2e7d32; }
@@ -231,8 +292,11 @@
         }
         .upload-link:hover { text-decoration: underline; }
         
-        .status-pending { background: #ffa502; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-        .status-paid { background: #2e7d32; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .num-btn.selected-win {
+            background: #4CAF50 !important;
+            border-color: #2e7d32 !important;
+            color: white !important;
+        }
         
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: 1fr; }
@@ -258,7 +322,7 @@
     <div class="container">
         <div class="admin-header">
             <h1>Admin Panel</h1>
-            <p>Manage users, grant video access (triggers referral commission), process withdrawals</p>
+            <p>Manage users, grant video access, process payments, and manage lucky draw</p>
         </div>
 
         <div id="alertMessage" class="alert" style="display: none;"></div>
@@ -270,7 +334,7 @@
                 <div class="stat-label">Current Balance</div>
                 <div style="margin-top: 15px; color: #aaa; font-size: 13px;">
                     <div>Total Collected: <span id="totalCollected" style="color: white;">0 PKR</span></div>
-                    <div>Total Paid (Withdrawals): <span id="totalPaid" style="color: white;">0 PKR</span></div>
+                    <div>Total Paid: <span id="totalPaid" style="color: white;">0 PKR</span></div>
                     <div>Commission Paid: <span id="totalCommissionPaid" style="color: #ffa502;">0 PKR</span></div>
                 </div>
             </div>
@@ -291,8 +355,10 @@
             <button class="tab active" data-tab="users">👥 Users Management</button>
             <button class="tab" data-tab="videos">🎬 Videos</button>
             <button class="tab" data-tab="payment">🏦 Payment Methods</button>
+            <button class="tab" data-tab="luckydraw">🎲 Lucky Draw</button>
         </div>
 
+        <!-- Users Tab -->
         <div class="tab-content active" id="users-tab">
             <div class="search-box">
                 <input type="text" class="search-input" id="userSearch" placeholder="Search by email...">
@@ -307,7 +373,7 @@
                             <th>Balance (PKR)</th>
                             <th>Withdraw Limit</th>
                             <th>Referral Earnings</th>
-                            <th>Referrals<br>Total</th>
+                            <th>Referrals Total</th>
                             <th>With Plan</th>
                             <th>Without Plan</th>
                             <th>Payment Proof</th>
@@ -330,6 +396,7 @@
             </div>
         </div>
 
+        <!-- Videos Tab -->
         <div class="tab-content" id="videos-tab">
             <h3 style="color: white; margin-bottom: 20px;">Manage Videos (5 Videos Max)</h3>
             <form id="videosForm">
@@ -346,6 +413,7 @@
             </form>
         </div>
 
+        <!-- Payment Methods Tab -->
         <div class="tab-content" id="payment-tab">
             <h3 style="color: white; margin-bottom: 20px;">Company Payment Methods</h3>
             <p style="color: #aaa; margin-bottom: 20px;">These accounts are shown to users for depositing payments</p>
@@ -358,12 +426,69 @@
                 </div>
             </form>
         </div>
+
+        <!-- Lucky Draw Tab -->
+        <div class="tab-content" id="luckydraw-tab">
+            <h3 style="color: white; margin-bottom: 20px;">🎲 Lucky Draw Management</h3>
+            
+            <div class="card" style="margin-bottom: 20px; padding: 20px; background: #2a2a2a; border-radius: 12px;">
+                <h3>Set Winning Number & Prize</h3>
+                <div class="form-group">
+                    <label class="form-label">Select Winning Number (1-12)</label>
+                    <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; max-width: 400px;">
+                        <button class="num-btn" data-num="1" onclick="selectWinningNumber(1)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">1</button>
+                        <button class="num-btn" data-num="2" onclick="selectWinningNumber(2)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">2</button>
+                        <button class="num-btn" data-num="3" onclick="selectWinningNumber(3)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">3</button>
+                        <button class="num-btn" data-num="4" onclick="selectWinningNumber(4)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">4</button>
+                        <button class="num-btn" data-num="5" onclick="selectWinningNumber(5)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">5</button>
+                        <button class="num-btn" data-num="6" onclick="selectWinningNumber(6)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">6</button>
+                        <button class="num-btn" data-num="7" onclick="selectWinningNumber(7)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">7</button>
+                        <button class="num-btn" data-num="8" onclick="selectWinningNumber(8)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">8</button>
+                        <button class="num-btn" data-num="9" onclick="selectWinningNumber(9)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">9</button>
+                        <button class="num-btn" data-num="10" onclick="selectWinningNumber(10)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">10</button>
+                        <button class="num-btn" data-num="11" onclick="selectWinningNumber(11)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">11</button>
+                        <button class="num-btn" data-num="12" onclick="selectWinningNumber(12)" style="padding: 15px; background: #333; border: 1px solid #555; border-radius: 8px; color: white; font-size: 18px; cursor: pointer;">12</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Reward Amount (PKR)</label>
+                    <input type="number" class="form-input" id="rewardAmount" placeholder="Enter reward amount (50-5000)" min="50" max="5000">
+                </div>
+                
+                <div id="selectedWinningNumber" style="margin: 15px 0; padding: 10px; background: #1a3c1a; border-radius: 8px; display: none;">
+                    Selected Winning Number: <strong id="winNumDisplay" style="color: #ff0000; font-size: 24px;"></strong>
+                </div>
+                
+                <button class="btn btn-success" onclick="announceWinningNumber()" id="announceBtn" disabled>🏆 Announce Winning Number & Pay Winners</button>
+            </div>
+            
+            <div class="card" style="padding: 20px; background: #2a2a2a; border-radius: 12px;">
+                <h3>User Selections</h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>User Email</th>
+                                <th>Selected Number</th>
+                                <th>Selected Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="luckyDrawSelectionsBody">
+                            <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         let allUsers = [];
         let isVideoEditMode = false;
         let isPaymentEditMode = false;
+        let selectedWinNumber = null;
 
         function showAlert(message, type) {
             const alertDiv = document.getElementById('alertMessage');
@@ -373,6 +498,7 @@
             setTimeout(() => { alertDiv.style.display = 'none'; }, 5000);
         }
 
+        // Tab switching
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -382,6 +508,7 @@
                 if (this.dataset.tab === 'users') loadUsers();
                 if (this.dataset.tab === 'videos') loadVideos();
                 if (this.dataset.tab === 'payment') loadPaymentMethods();
+                if (this.dataset.tab === 'luckydraw') loadLuckyDrawSelections();
             });
         });
 
@@ -451,10 +578,10 @@
                 let withdrawalActionHtml = '';
                 
                 if (user.withdrawalRequested) {
-                    withdrawalStatusHtml = '<span class="status-pending">⏳ PENDING</span>';
+                    withdrawalStatusHtml = '<span class="badge badge-warning">⏳ PENDING</span>';
                     withdrawalActionHtml = `<button class="btn btn-success btn-sm" onclick="processWithdrawal('${user.email}')">💰 PAY NOW</button>`;
                 } else if (user.withdrawalMessage && user.withdrawalMessage.includes('PAID')) {
-                    withdrawalStatusHtml = '<span class="status-paid">✓ PAID</span>';
+                    withdrawalStatusHtml = '<span class="badge badge-success">✓ PAID</span>';
                     withdrawalActionHtml = '<span class="badge badge-info">Completed</span>';
                 } else {
                     const currentAmount = parseFloat(user.amount);
@@ -504,7 +631,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, grantAccess: isOn })
                 });
-                
                 const result = await response.json();
                 if (result.success) {
                     showAlert(result.message, 'success');
@@ -518,15 +644,11 @@
                 }
             } catch(e) {
                 showAlert('Error toggling video access', 'error');
-                const toggleId = `toggle_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
-                const toggle = document.getElementById(toggleId);
-                if (toggle) toggle.checked = !isOn;
             }
         }
 
         async function processWithdrawal(email) {
-            if (!confirm(`Process withdrawal for ${email}?\n\nThis will:\n1. DEDUCT withdrawal amount from user's balance\n2. DEDUCT same amount from company balance\n\nClick OK to confirm.`)) return;
-            
+            if (!confirm(`Process withdrawal for ${email}? This will deduct amount from user and company balance.`)) return;
             try {
                 const res = await fetch('/processWithdrawal', {
                     method: 'POST',
@@ -535,20 +657,17 @@
                 });
                 const result = await res.json();
                 if (result.success) {
-                    showAlert(`✅ ${result.message}`, 'success');
+                    showAlert(result.message, 'success');
                     loadUsers();
                     loadCompanyBalance();
                 } else {
-                    showAlert(`❌ ${result.message}`, 'error');
+                    showAlert(result.message, 'error');
                 }
-            } catch(e) { 
-                showAlert('Error processing withdrawal', 'error');
-            }
+            } catch(e) { showAlert('Error', 'error'); }
         }
 
         async function deleteUser(email) {
-            if (!confirm(`⚠️ WARNING: Delete user ${email}?\n\nThis action cannot be undone.`)) return;
-            
+            if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
             try {
                 const res = await fetch('/deleteUser', {
                     method: 'POST',
@@ -557,15 +676,13 @@
                 });
                 const result = await res.json();
                 if (result.success) {
-                    showAlert(`✅ ${result.message}`, 'success');
+                    showAlert(result.message, 'success');
                     loadUsers();
                     loadCompanyBalance();
                 } else {
-                    showAlert(`❌ ${result.message}`, 'error');
+                    showAlert(result.message, 'error');
                 }
-            } catch(e) { 
-                showAlert('Error deleting user', 'error');
-            }
+            } catch(e) { showAlert('Error', 'error'); }
         }
 
         async function loadVideos() {
@@ -577,7 +694,6 @@
                 document.getElementById('video3').value = videos.v3 || '';
                 document.getElementById('video4').value = videos.v4 || '';
                 document.getElementById('video5').value = videos.v5 || '';
-                
                 const inputs = document.querySelectorAll('#videosForm .form-input');
                 inputs.forEach(input => input.disabled = !isVideoEditMode);
             } catch(e) { console.error(e); }
@@ -593,26 +709,12 @@
         }
 
         async function saveVideos() {
-            const videos = {
-                v1: document.getElementById('video1').value,
-                v2: document.getElementById('video2').value,
-                v3: document.getElementById('video3').value,
-                v4: document.getElementById('video4').value,
-                v5: document.getElementById('video5').value
-            };
+            const videos = { v1: document.getElementById('video1').value, v2: document.getElementById('video2').value, v3: document.getElementById('video3').value, v4: document.getElementById('video4').value, v5: document.getElementById('video5').value };
             try {
-                const res = await fetch('/saveVideos', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(videos)
-                });
+                const res = await fetch('/saveVideos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(videos) });
                 const result = await res.json();
-                if (result.success) {
-                    showAlert('Videos saved!', 'success');
-                    toggleEditMode();
-                } else {
-                    showAlert(result.message, 'error');
-                }
+                if (result.success) { showAlert('Videos saved!', 'success'); toggleEditMode(); }
+                else { showAlert(result.message, 'error'); }
             } catch(e) { showAlert('Error saving videos', 'error'); }
         }
 
@@ -635,10 +737,7 @@
                 const div = document.createElement('div');
                 div.style.cssText = 'padding: 15px; border: 1px solid #444; border-radius: 8px; margin-bottom: 15px; background: #2a2a2a;';
                 div.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                        <strong>Method ${index + 1}</strong>
-                        <button type="button" class="btn btn-danger btn-sm" onclick="removeMethod(${index})" style="display: ${isPaymentEditMode ? 'inline-block' : 'none'}">Remove</button>
-                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;"><strong>Method ${index + 1}</strong><button type="button" class="btn btn-danger btn-sm" onclick="removeMethod(${index})" style="display: ${isPaymentEditMode ? 'inline-block' : 'none'}">Remove</button></div>
                     <div class="form-group"><label class="form-label">Method Name</label><input type="text" class="form-input method-name" value="${method.name}" ${!isPaymentEditMode ? 'disabled' : ''}></div>
                     <div class="form-group"><label class="form-label">Account Number</label><input type="text" class="form-input method-number" value="${method.number}" ${!isPaymentEditMode ? 'disabled' : ''}></div>
                 `;
@@ -651,10 +750,7 @@
             const div = document.createElement('div');
             div.style.cssText = 'padding: 15px; border: 1px solid #444; border-radius: 8px; margin-bottom: 15px; background: #2a2a2a;';
             div.innerHTML = `
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                    <strong>New Method</strong>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('div').remove()">Remove</button>
-                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;"><strong>New Method</strong><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('div').remove()">Remove</button></div>
                 <div class="form-group"><label class="form-label">Method Name</label><input type="text" class="form-input method-name" placeholder="Easypaisa, JazzCash"></div>
                 <div class="form-group"><label class="form-label">Account Number</label><input type="text" class="form-input method-number" placeholder="03451234567"></div>
             `;
@@ -687,11 +783,7 @@
             });
             if (methods.length === 0) { showAlert('Please add at least one payment method', 'error'); return; }
             try {
-                const res = await fetch('/saveDepositMethods', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ methods })
-                });
+                const res = await fetch('/saveDepositMethods', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ methods }) });
                 const result = await res.json();
                 if (result.success) { showAlert('Payment methods saved!', 'success'); togglePaymentEditMode(); }
                 else { showAlert(result.message, 'error'); }
@@ -711,13 +803,88 @@
         }
 
         async function resetCompanyBalance() {
-            if (!confirm('⚠️ WARNING: This will reset company balance to 0. Are you sure?')) return;
+            if (!confirm('Reset company balance to 0?')) return;
             try {
                 const res = await fetch('/resetCompanyBalance', { method: 'POST' });
                 const result = await res.json();
-                if (result.success) { showAlert('Company balance reset to 0!', 'success'); loadCompanyBalance(); }
+                if (result.success) { showAlert('Company balance reset!', 'success'); loadCompanyBalance(); }
                 else { showAlert(result.message, 'error'); }
-            } catch(e) { showAlert('Error resetting balance', 'error'); }
+            } catch(e) { showAlert('Error', 'error'); }
+        }
+
+        // ===== LUCKY DRAW FUNCTIONS =====
+
+        function selectWinningNumber(num) {
+            selectedWinNumber = num;
+            document.getElementById('selectedWinningNumber').style.display = 'block';
+            document.getElementById('winNumDisplay').textContent = num;
+            document.getElementById('announceBtn').disabled = false;
+            document.querySelectorAll('.num-btn').forEach(btn => {
+                btn.classList.remove('selected-win');
+                if (parseInt(btn.getAttribute('data-num')) === num) {
+                    btn.classList.add('selected-win');
+                    btn.style.background = '#4CAF50';
+                } else {
+                    btn.style.background = '#333';
+                }
+            });
+        }
+
+        async function announceWinningNumber() {
+            const rewardAmount = document.getElementById('rewardAmount').value;
+            if (!selectedWinNumber) { showAlert('Please select a winning number', 'error'); return; }
+            if (!rewardAmount || rewardAmount < 50 || rewardAmount > 5000) { showAlert('Please enter a valid reward amount (50-5000 PKR)', 'error'); return; }
+            if (!confirm(`Announce winning number ${selectedWinNumber} with reward ${rewardAmount} PKR? All users who selected this number will receive ${rewardAmount} PKR.`)) return;
+            
+            try {
+                const res = await fetch('/setWinningNumber', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ winningNumber: selectedWinNumber, rewardAmount: parseFloat(rewardAmount) })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showAlert(result.message, 'success');
+                    selectedWinNumber = null;
+                    document.getElementById('selectedWinningNumber').style.display = 'none';
+                    document.getElementById('rewardAmount').value = '';
+                    document.getElementById('announceBtn').disabled = true;
+                    document.querySelectorAll('.num-btn').forEach(btn => btn.style.background = '#333');
+                    loadLuckyDrawSelections();
+                    loadUsers();
+                    loadCompanyBalance();
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            } catch(e) { showAlert('Error announcing winning number', 'error'); }
+        }
+
+        async function loadLuckyDrawSelections() {
+            try {
+                const res = await fetch('/getLuckyDrawSelections');
+                const result = await res.json();
+                if (result.success) {
+                    const tbody = document.getElementById('luckyDrawSelectionsBody');
+                    if (result.selections.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No user selections yet</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = '';
+                    result.selections.forEach(selection => {
+                        const row = document.createElement('tr');
+                        let statusHtml = '';
+                        if (result.isAnnounced && selection.selectedNumber === result.winningNumber) {
+                            statusHtml = '<span class="badge badge-success">✅ WINNER! +' + result.rewardAmount + ' PKR</span>';
+                        } else if (result.isAnnounced) {
+                            statusHtml = '<span class="badge badge-danger">❌ Lost</span>';
+                        } else {
+                            statusHtml = '<span class="badge badge-info">⏳ Awaiting Draw</span>';
+                        }
+                        row.innerHTML = `<td>${selection.email}</td><td style="font-size: 24px; font-weight: bold; color: #ff0000;">${selection.selectedNumber || '-'}</td><td>${selection.selectedDate ? new Date(selection.selectedDate).toLocaleDateString() : '-'}</td><td>${statusHtml}</td>`;
+                        tbody.appendChild(row);
+                    });
+                }
+            } catch(e) { console.error(e); }
         }
 
         function refreshData() {
@@ -725,6 +892,7 @@
             loadUsers();
             loadVideos();
             loadPaymentMethods();
+            loadLuckyDrawSelections();
             showAlert('All data refreshed', 'success');
         }
 

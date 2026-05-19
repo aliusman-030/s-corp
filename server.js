@@ -41,6 +41,8 @@ let usersCollection;
 let videosCollection;
 let paymentMethodsCollection;
 let companyBalanceCollection;
+let luckyDrawCollection;
+let luckyDrawSelectionsCollection;
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@site.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Abac@123';
@@ -79,6 +81,9 @@ async function connectDB() {
         videosCollection = db.collection('videos');
         paymentMethodsCollection = db.collection('paymentmethods');
         companyBalanceCollection = db.collection('companybalance');
+        luckyDrawCollection = db.collection('luckydraw');
+        luckyDrawSelectionsCollection = db.collection('luckydrawselections');
+        
         console.log('✅ Connected to MongoDB');
         await initializeDB();
         return true;
@@ -176,7 +181,6 @@ async function updateCompanyBalance(amount, type, description) {
 // ===== REFERRAL FUNCTIONS =====
 
 async function processReferralOnPlanSelection(childEmail, planName) {
-    console.log(`📊 processReferralOnPlanSelection for ${childEmail}`);
     const child = await usersCollection.findOne({ email: childEmail });
     if (!child) return false;
     const referredBy = child.referredBy;
@@ -189,76 +193,104 @@ async function processReferralOnPlanSelection(childEmail, planName) {
         { email: referredBy },
         { $inc: { totalReferralsAdded: 1, referralsWithoutPlan: 1 } }
     );
-    console.log(`✅ Referral counted: ${referredBy} referred ${childEmail}`);
     return true;
 }
 
 async function processReferralCommission(childEmail, planName) {
-    console.log(`💰 processReferralCommission for ${childEmail} with plan ${planName}`);
-    
     const child = await usersCollection.findOne({ email: childEmail });
-    if (!child) {
-        console.log(`❌ Child ${childEmail} not found`);
-        return false;
-    }
-    
+    if (!child) return false;
     const referredBy = child.referredBy;
-    if (!referredBy || referredBy === '') {
-        console.log(`❌ Child ${childEmail} has no referrer`);
-        return false;
-    }
-    
+    if (!referredBy || referredBy === '') return false;
     const parent = await usersCollection.findOne({ email: referredBy });
-    if (!parent) {
-        console.log(`❌ Parent ${referredBy} not found`);
-        return false;
-    }
-    
+    if (!parent) return false;
     const planData = PLANS[planName];
-    if (!planData) {
-        console.log(`❌ Plan ${planName} not found`);
-        return false;
-    }
-    
-    // Parent must have a plan to receive commission
-    if (!parent.plan || parent.plan === '') {
-        console.log(`❌ Parent ${referredBy} has no plan, cannot receive commission`);
-        return false;
-    }
-    
+    if (!planData) return false;
+    if (!parent.plan || parent.plan === '') return false;
     const commission = planData.referralCommission;
     const currentParentBalance = parseFloat(parent.amount) || 0;
     const newBalance = currentParentBalance + commission;
-    
-    console.log(`💵 Adding ${commission} PKR to ${referredBy} (${currentParentBalance} → ${newBalance})`);
-    
-    // Update parent's balance
     await usersCollection.updateOne(
         { email: referredBy },
-        { 
-            $set: { 
-                amount: newBalance,
-                referralEarnings: (parent.referralEarnings || 0) + commission
-            }
-        }
+        { $set: { amount: newBalance, referralEarnings: (parent.referralEarnings || 0) + commission } }
     );
-    
-    // Update referral counts
     await usersCollection.updateOne(
         { email: referredBy },
-        { 
-            $inc: { 
-                referralsWithPlan: 1,
-                referralsWithoutPlan: -1
-            }
-        }
+        { $inc: { referralsWithPlan: 1, referralsWithoutPlan: -1 } }
     );
-    
-    // Deduct from company balance
     await updateCompanyBalance(commission, 'commission', `Referral commission paid to ${referredBy} for referring ${childEmail} (${planName})`);
-    
-    console.log(`✅ SUCCESS: ${referredBy} earned ${commission} PKR! New balance: ${newBalance}`);
     return true;
+}
+
+// ===== LUCKY DRAW FUNCTIONS =====
+
+function getCurrentPKTDate() {
+    const now = new Date();
+    const pktDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
+    return pktDate;
+}
+
+function getTodayPKTString() {
+    const pktDate = getCurrentPKTDate();
+    return pktDate.toISOString().split('T')[0];
+}
+
+function shouldResetDaily() {
+    const pktDate = getCurrentPKTDate();
+    const hours = pktDate.getHours();
+    return hours >= 23;
+}
+
+async function getCurrentDrawDate() {
+    const pktDate = getCurrentPKTDate();
+    const today = getTodayPKTString();
+    if (shouldResetDaily()) {
+        const tomorrow = new Date(pktDate);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return tomorrow.toISOString().split('T')[0];
+    }
+    return today;
+}
+
+async function getCurrentWinningNumber() {
+    const currentDate = await getCurrentDrawDate();
+    const draw = await luckyDrawCollection.findOne({ date: currentDate });
+    if (draw && draw.isAnnounced) {
+        return { winningNumber: draw.winningNumber, rewardAmount: draw.rewardAmount };
+    }
+    return { winningNumber: null, rewardAmount: null };
+}
+
+async function processWinners(winningNumber, rewardAmount, drawDate) {
+    const winners = await usersCollection.find({
+        "luckyDraw.selectedNumber": winningNumber,
+        "luckyDraw.lastResetDate": { $ne: drawDate }
+    }).toArray();
+    
+    let winnerCount = 0;
+    for (const winner of winners) {
+        const currentBalance = parseFloat(winner.amount) || 0;
+        const newBalance = currentBalance + rewardAmount;
+        
+        await usersCollection.updateOne(
+            { email: winner.email },
+            { 
+                $set: { 
+                    amount: newBalance,
+                    "luckyDraw.lastResetDate": drawDate
+                },
+                $push: {
+                    luckyDrawWins: {
+                        date: drawDate,
+                        number: winningNumber,
+                        reward: rewardAmount,
+                        awardedAt: new Date().toISOString()
+                    }
+                }
+            }
+        );
+        winnerCount++;
+    }
+    return winnerCount;
 }
 
 function requireLogin(req, res, next) {
@@ -285,8 +317,6 @@ app.post('/signup', async (req, res) => {
     try {
         const { email, password, confirmPassword, referralCode } = req.body;
         
-        console.log(`📝 Signup: ${email}, referralCode: ${referralCode || 'none'}`);
-        
         if (!email || !password || !confirmPassword) {
             return res.json({ success: false, message: 'All fields are required' });
         }
@@ -312,9 +342,6 @@ app.post('/signup', async (req, res) => {
             const referringUser = await usersCollection.findOne({ referral: referralCode });
             if (referringUser) {
                 referredBy = referringUser.email;
-                console.log(`✅ Referral detected! ${email} referred by ${referredBy}`);
-            } else {
-                console.log(`⚠️ Referral code ${referralCode} not found`);
             }
         }
         
@@ -325,12 +352,11 @@ app.post('/signup', async (req, res) => {
             accountHolderName: '', accountTitle: '', createdAt: new Date().toISOString(),
             totalReferralsAdded: 0, referralsWithPlan: 0, referralsWithoutPlan: 0, dailyVideosWatched: 0,
             referralEarnings: 0, videoEarnings: 0, referredBy: referredBy, lastDailyReset: new Date().toISOString(),
-            isPaid: false, paidAmount: 0
+            isPaid: false, paidAmount: 0, luckyDraw: { selectedNumber: null, selectedAt: null, lastResetDate: null },
+            luckyDrawWins: []
         };
         
         await usersCollection.insertOne(newUser);
-        
-        console.log(`✅ User created: ${email}, referredBy: ${referredBy || 'none'}`);
         
         res.json({ success: true, message: 'Account created successfully!', referral: referral });
     } catch (e) {
@@ -455,8 +481,6 @@ app.post('/selectPlan', requireLogin, async (req, res) => {
     const { plan } = req.body;
     const userEmail = req.session.user;
     
-    console.log(`📋 User ${userEmail} selecting plan: ${plan}`);
-    
     if (!plan || !PLANS[plan]) {
         return res.json({ success: false, message: 'Invalid plan selected' });
     }
@@ -468,15 +492,12 @@ app.post('/selectPlan', requireLogin, async (req, res) => {
         const hadPlanBefore = user.plan && user.plan !== '';
         const hasReferrer = user.referredBy && user.referredBy !== '';
         
-        console.log(`hadPlanBefore: ${hadPlanBefore}, hasReferrer: ${hasReferrer}, referredBy: ${user.referredBy}`);
-        
         await usersCollection.updateOne(
             { email: userEmail },
             { $set: { plan: plan, grantedVideos: false, isPaid: false } }
         );
         
         if (hasReferrer && !hadPlanBefore) {
-            console.log(`🎯 Calling processReferralOnPlanSelection`);
             await processReferralOnPlanSelection(userEmail, plan);
         }
         
@@ -510,11 +531,9 @@ app.post('/upload', requireLogin, upload.single('media'), async (req, res) => {
     }
 });
 
-// TOGGLE VIDEO ACCESS - COMMISSION IS ADDED HERE AUTOMATICALLY
+// TOGGLE VIDEO ACCESS
 app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
     const { email, grantAccess } = req.body;
-    
-    console.log(`🔘 Toggle video access: ${email} -> ${grantAccess ? 'ON' : 'OFF'}`);
     
     try {
         const user = await usersCollection.findOne({ email });
@@ -534,9 +553,6 @@ app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
         
         if (grantAccess && !wasGranted) {
             await updateCompanyBalance(planData.price, 'collected', `Payment from ${email} for ${user.plan}`);
-            
-            // ⭐ THIS IS WHERE PARENT GETS COMMISSION AUTOMATICALLY ⭐
-            console.log(`🎯 Calling processReferralCommission for ${email}`);
             await processReferralCommission(email, user.plan);
         }
         
@@ -653,6 +669,174 @@ app.get('/force-create-admin', async (req, res) => {
     }
 });
 
+// ===== LUCKY DRAW API ENDPOINTS =====
+
+app.get('/getLuckyDrawStatus', requireLogin, async (req, res) => {
+    try {
+        const user = await usersCollection.findOne({ email: req.session.user });
+        const currentDate = await getCurrentDrawDate();
+        const { winningNumber, rewardAmount } = await getCurrentWinningNumber();
+        const afterReset = shouldResetDaily();
+        
+        let canSelect = true;
+        let userSelectedNumber = null;
+        
+        if (user.luckyDraw && user.luckyDraw.selectedNumber) {
+            const selectedDate = user.luckyDraw.lastResetDate;
+            if (selectedDate === currentDate) {
+                canSelect = false;
+                userSelectedNumber = user.luckyDraw.selectedNumber;
+            }
+        }
+        
+        const wins = user.luckyDrawWins || [];
+        
+        res.json({
+            success: true,
+            currentDate: currentDate,
+            winningNumber: winningNumber,
+            rewardAmount: rewardAmount,
+            isAnnounced: winningNumber !== null,
+            canSelect: canSelect,
+            userSelectedNumber: userSelectedNumber,
+            nextDrawTime: "11:00 PM Pakistan Time",
+            afterReset: afterReset,
+            wins: wins.slice(-5)
+        });
+    } catch (error) {
+        console.error('Lucky draw status error:', error);
+        res.json({ success: false, message: 'Error fetching lucky draw status' });
+    }
+});
+
+app.post('/selectLuckyNumber', requireLogin, async (req, res) => {
+    const { number } = req.body;
+    const userEmail = req.session.user;
+    
+    if (!number || number < 1 || number > 12) {
+        return res.json({ success: false, message: 'Please select a number between 1 and 12' });
+    }
+    
+    try {
+        const user = await usersCollection.findOne({ email: userEmail });
+        const currentDate = await getCurrentDrawDate();
+        
+        if (user.luckyDraw && user.luckyDraw.lastResetDate === currentDate && user.luckyDraw.selectedNumber) {
+            return res.json({ success: false, message: 'You have already selected a number for today!' });
+        }
+        
+        await usersCollection.updateOne(
+            { email: userEmail },
+            { 
+                $set: { 
+                    luckyDraw: {
+                        selectedNumber: number,
+                        selectedAt: new Date().toISOString(),
+                        lastResetDate: currentDate
+                    }
+                }
+            }
+        );
+        
+        await luckyDrawSelectionsCollection.updateOne(
+            { email: userEmail, date: currentDate },
+            { $set: { number: number, selectedAt: new Date().toISOString() } },
+            { upsert: true }
+        );
+        
+        res.json({ success: true, message: `You selected number ${number}! Good luck!` });
+    } catch (error) {
+        console.error('Select number error:', error);
+        res.json({ success: false, message: 'Error saving your selection' });
+    }
+});
+
+app.post('/setWinningNumber', requireAdmin, async (req, res) => {
+    const { winningNumber, rewardAmount } = req.body;
+    
+    if (!winningNumber || winningNumber < 1 || winningNumber > 12) {
+        return res.json({ success: false, message: 'Please select a valid winning number (1-12)' });
+    }
+    
+    if (!rewardAmount || rewardAmount < 50 || rewardAmount > 5000) {
+        return res.json({ success: false, message: 'Reward amount must be between 50 and 5000 PKR' });
+    }
+    
+    try {
+        const currentDate = await getCurrentDrawDate();
+        
+        const existingDraw = await luckyDrawCollection.findOne({ date: currentDate });
+        if (existingDraw && existingDraw.isAnnounced) {
+            return res.json({ success: false, message: 'Winning number already announced for today!' });
+        }
+        
+        await luckyDrawCollection.updateOne(
+            { date: currentDate },
+            { 
+                $set: { 
+                    winningNumber: winningNumber,
+                    rewardAmount: rewardAmount,
+                    isAnnounced: true,
+                    announcedAt: new Date().toISOString()
+                }
+            },
+            { upsert: true }
+        );
+        
+        const winnerCount = await processWinners(winningNumber, rewardAmount, currentDate);
+        
+        res.json({ 
+            success: true, 
+            message: `Winning number ${winningNumber} announced! ${winnerCount} users won ${rewardAmount} PKR each!`,
+            winnerCount: winnerCount
+        });
+    } catch (error) {
+        console.error('Set winning number error:', error);
+        res.json({ success: false, message: 'Error setting winning number' });
+    }
+});
+
+app.get('/getLuckyDrawSelections', requireAdmin, async (req, res) => {
+    try {
+        const currentDate = await getCurrentDrawDate();
+        const { winningNumber, rewardAmount } = await getCurrentWinningNumber();
+        
+        const users = await usersCollection.find({}).toArray();
+        
+        const selections = users.map(user => ({
+            email: user.email,
+            selectedNumber: user.luckyDraw?.selectedNumber || null,
+            selectedDate: user.luckyDraw?.lastResetDate || null,
+            hasWon: user.luckyDraw?.selectedNumber === winningNumber && winningNumber !== null,
+            wins: user.luckyDrawWins || []
+        })).filter(u => u.selectedNumber !== null);
+        
+        res.json({
+            success: true,
+            currentDate: currentDate,
+            winningNumber: winningNumber,
+            rewardAmount: rewardAmount,
+            isAnnounced: winningNumber !== null,
+            selections: selections
+        });
+    } catch (error) {
+        console.error('Get selections error:', error);
+        res.json({ success: false, message: 'Error fetching selections' });
+    }
+});
+
+app.post('/forceLuckyDrawReset', requireAdmin, async (req, res) => {
+    try {
+        await usersCollection.updateMany(
+            {},
+            { $set: { "luckyDraw.selectedNumber": null, "luckyDraw.selectedAt": null } }
+        );
+        res.json({ success: true, message: 'Lucky draw reset completed' });
+    } catch (error) {
+        res.json({ success: false, message: 'Error resetting' });
+    }
+});
+
 // ===== START SERVER =====
 connectDB().then((connected) => {
     if (connected) {
@@ -661,7 +845,8 @@ connectDB().then((connected) => {
             console.log(`💰 Currency: PKR`);
             console.log(`📊 Plans: 500, 1000, 1500 PKR`);
             console.log(`🎬 Video Commission: 30/40/50 PKR per video`);
-            console.log(`👥 Referral Commission: 50/80/100 PKR (AUTO when child gets video access)`);
+            console.log(`👥 Referral Commission: 50/80/100 PKR (auto when child gets video access)`);
+            console.log(`🎲 Lucky Draw: Active - Daily draw at 11 PM PKT`);
             console.log(`🔐 Admin: ${ADMIN_EMAIL}`);
         });
     } else {
