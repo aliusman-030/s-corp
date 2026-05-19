@@ -55,7 +55,6 @@
         }
         .btn:hover { background: #cc0000; }
         .btn-secondary { background: #333; }
-        .btn-secondary:hover { background: #444; }
         
         .cards-grid {
             display: grid;
@@ -151,81 +150,6 @@
         .alert-error { background: #3c1a1a; color: #f44336; border: 1px solid #d32f2f; display: block; }
         .alert-info { background: #1a3c3c; color: #00bcd4; border: 1px solid #0097a7; display: block; }
         
-        /* Lucky Draw Styles */
-        .lucky-numbers-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .lucky-number-box {
-            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-            border: 2px solid #444;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .lucky-number-box:hover {
-            transform: translateY(-5px);
-            border-color: #ff0000;
-        }
-        .lucky-number-box.selected {
-            border-color: #4CAF50;
-            background: linear-gradient(135deg, #1a3c1a, #0a2a0a);
-        }
-        .lucky-number-box.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .lucky-number {
-            font-size: 32px;
-            font-weight: bold;
-            color: #ff0000;
-        }
-        .winning-badge {
-            background: linear-gradient(135deg, #ffd700, #ff8c00);
-            color: #000;
-            padding: 15px 20px;
-            border-radius: 30px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .winning-number {
-            font-size: 48px;
-            font-weight: bold;
-            color: #ff0000;
-        }
-        .reward-amount {
-            font-size: 24px;
-            color: #4CAF50;
-            font-weight: bold;
-        }
-        .wins-list {
-            margin-top: 20px;
-            background: #2a2a2a;
-            border-radius: 8px;
-            padding: 15px;
-        }
-        .win-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            border-bottom: 1px solid #444;
-        }
-        .win-item:last-child {
-            border-bottom: none;
-        }
-        .win-date {
-            color: #aaa;
-            font-size: 12px;
-        }
-        .win-reward {
-            color: #4CAF50;
-            font-weight: bold;
-        }
-        
         .hidden { display: none; }
         
         @media (max-width: 768px) {
@@ -233,7 +157,6 @@
             .stats-grid { grid-template-columns: 1fr; }
             .nav-container { flex-direction: column; gap: 15px; }
             .plans-grid { grid-template-columns: 1fr; }
-            .lucky-numbers-grid { grid-template-columns: repeat(3, 1fr); }
         }
     </style>
 </head>
@@ -347,16 +270,6 @@
             <h2>📈 Select or Upgrade Plan</h2>
             <div class="plans-grid" id="plansContainer"></div>
         </div>
-
-        <!-- Lucky Draw Section -->
-        <div class="card" style="margin-top: 20px;">
-            <h2>🎲 Lucky Draw</h2>
-            <div id="luckyDrawContainer">
-                <div style="text-align: center; padding: 20px;">
-                    <div class="loading-spinner">Loading...</div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -380,7 +293,7 @@
             showAlert('Referral link copied!', 'success');
         }
 
-        function refreshData() { loadProfileData(); loadDepositMethods(); loadLuckyDrawStatus(); }
+        function refreshData() { loadProfileData(); loadDepositMethods(); }
 
         async function loadDepositMethods() {
             try {
@@ -510,296 +423,36 @@
                 });
                 const result = await res.json();
                 if (result.success) {
-                    showAlert(`${planName} selected! Please deposit ${result.planPrice} PKR and upload payment proof PKR and upload payment proof in Profile in Profile.`, 'success.`, 'success');
-                    loadProfileData();
-');
+                    showAlert(`${planName} selected! Please deposit ${result.planPrice} PKR and upload payment proof in Profile.`, 'success');
                     loadProfileData();
                 } else {
-                    show                } else {
                     showAlert(result.message, 'error');
-               Alert(result.message, 'error');
                 }
-            }
-            } catch(e) } catch(e) { showAlert('Error selecting plan', 'error'); }
+            } catch(e) { showAlert('Error selecting plan', 'error'); }
         }
 
-        document.getElementById { showAlert('Error selecting plan', 'error'); }
-        }
-
-        document.getElementById('('requestWithdrawalBtn').addrequestWithdrawalBtn').addEventListener('click',EventListener('click', async () async () => {
- => {
-            if (!user            if (!userData.withData.withdrawalMethod) {
-                showAlert('Please save withdrawal info in Profile first!', 'error');
-drawalMethod) {
+        document.getElementById('requestWithdrawalBtn').addEventListener('click', async () => {
+            if (!userData.withdrawalMethod) {
                 showAlert('Please save withdrawal info in Profile first!', 'error');
                 return;
             }
             if (!confirm('Request withdrawal? Admin will process your request.')) return;
-            try                return;
-            }
-            if (!confirm('Request withdrawal? Admin will process your request.')) return;
             try {
-                {
-                const res = await fetch('/requestWith const res = await fetch('/requestWithdrawal', { method: 'drawal', { method: 'POST' });
-               POST' });
-                const result = await const result = await res.json();
-                if (result.success res.json();
+                const res = await fetch('/requestWithdrawal', { method: 'POST' });
+                const result = await res.json();
                 if (result.success) {
-                    showAlert(') {
-                    showAlert('Withdrawal requested!', 'Withdrawal requested!', 'success');
-                    loadsuccess');
+                    showAlert('Withdrawal requested!', 'success');
                     loadProfileData();
-                } else {
-                   ProfileData();
                 } else {
                     showAlert(result.message, 'error');
                 }
-            } catch(e) { showAlert('Error requesting withdrawal showAlert(result.message, 'error');
-                }
-            } catch(e) { showAlert('Error requesting withdrawal', 'error');', 'error'); }
+            } catch(e) { showAlert('Error requesting withdrawal', 'error'); }
         });
 
-        // ===== LUCKY DRAW FUNCTIONS ===== }
-        });
-
-        // ===== LUCKY DRAW FUNCTIONS =====
-        async function loadL
-        async function loadLuckyDrawStatus()uckyDrawStatus() {
-            try {
- {
-            try {
-                const                const response = response = await fetch('/get await fetch('/getLuckyLuckyDrawStatus');
-               DrawStatus');
-                const data const data = await response.json = await response.json();
-               ();
-                if (data.success if () {
-data.success) {
-                    displayLuckyDraw(data                    displayLuckyDraw(data);
-                }
-            } catch);
-                }
-            } catch (error) {
- (error) {
-                console.error('                console.error('Error loadingError loading lucky draw:', error lucky draw:', error);
-            }
-       );
-            }
-        }
-
-        function display }
-
-        function displayLuckyDraw(data) {
-            constLuckyDraw(data) {
-            const container = document.getElementById('luckyDraw container = document.getElementById('luckyDrawContainer');
-            
-            let winningHtml = '';
-           Container');
-            
-            let winningHtml = '';
-            if (data.isAnnounced) {
-                winning if (data.isAnnounced) {
-                winningHtml = `
-                    <divHtml = `
-                    <div class=" class="winning-badgewinning-badge">
-                        <div>">
-                        <div>🏆 Today🏆 Today's Winning's Winning Number 🏆 Number 🏆</div</div>
-                        <div class="winning-number">>
-                        <div class="winning${data.winningNumber}</div>
--number">${data.winningNumber}</div>
-                        <div>Prize: <span class="reward-amount                        <div>Prize: <span class="reward-amount">${data.rewardAmount} PK">${data.rewardAmount} PKR</span></div>
-                    </R</span></div>
-                    </div>
-                `div>
-                `;
-            } else {
-                winningHtml;
-            } else {
-                winningHtml = `
-                    = `
-                    <div class <div class="winning-badge" style="background: #333; color="winning-badge" style="background: #333; color: #fff;">
-                        <div>⏰ Next Draw: ${data.nextDrawTime}</div>
-: #fff;">
-                        <div>⏰ Next Draw: ${data.nextDrawTime}</div>
-                        <div>Prize: ${                        <div>Prize: ${data.rewardAmount ? datadata.rewardAmount ? data.rewardAmount + ' PKR' : '.rewardAmount + ' PKR' : 'Waiting for admin to set prize'}</div>
-                    </div>
-Waiting for admin to set prize'}</div>
-                    </div>
-                `;
-            }
-            
-            let                `;
-            }
-            
-            let numbersHtml = '';
-            for (let i = numbersHtml = '';
-            for (let i = 1; i <= 12; i++) {
-                1; i <= 12; i++) {
-                let boxClass = 'lucky-number let boxClass = 'lucky-number-box';
-                let isSelected = (data.userSelectedNumber === i-box';
-                let isSelected = (data.userSelectedNumber);
-                
-                if (isSelected) === i);
-                
-                if (isSelected) boxClass += ' selected';
-                if boxClass += ' selected';
-                if (!data.canSelect || data (!data.canSelect || data.isAnnounced) boxClass += '.isAnnounced) boxClass += ' disabled';
-                
-                let onclick disabled';
-                
-                let onclickAttr = '';
-                if (Attr = '';
-                if (data.canSelect &&data.canSelect && !data.isAnn !data.isAnnounced &&ounced && !is !isSelected)Selected) {
-                    onclickAttr {
-                    onclickAttr = `onclick = `onclick="select="selectLuckyNumber($LuckyNumber(${i{i})"})"`;
-                }
-                
-`;
-                }
-                
-                numbers                numbersHtml += `
-                   Html += `
-                    <div class="${boxClass <div class="${boxClass}" ${onclick}" ${onclickAttr}>
-                        <div classAttr}>
-                        <div class="l="lucky-number">${i}</div>
-ucky-number">${i}</                        ${isSelecteddiv>
-                        ${isSelected ? '<div style ? '<div style="font="font-size: 12-size: 12px; color: #4px; color: #4CAF50;">CAF50;">✓ Selected✓ Selected</div>' :</div>' : ''}
- ''}
-                    </div>
-                `                    </div>
-                `;
-            }
-            
-            let;
-            }
-            
-            let winsHtml = '';
-            if (data winsHtml = '';
-            if.wins && data.wins (data.wins && data.wins.length > 0) {
-.length > 0) {
-                winsHtml = `
-                    <div                winsHtml = `
-                    <div class=" class="winswins-list">
-                        <h3-list">
-                        <h3 style="margin-bottom:  style="margin-bottom15px;">🏆 Your Previous Wins</h3>
-                        ${data.wins.map: 15px;">🏆 Your Previous Wins</h3>
-                        ${data.wins.map(win => `
-(win => `
-                            <div class="win                            <div class="win-item">
--item">
-                                <div>
-                                <div>
-                                                                       <div> <div>Won for numberWon for number ${win.number}</div>
-                                    ${win.number}</div>
-                                    <div class <div class="win-date">="win-date">${new Date(win.date${new Date(win.date).to).toLocaleDateLocaleDateString()}</divString()}</div>
-                               >
-                                </div>
-                                <div </div>
-                                <div class=" class="win-reward">win-reward">+${win.reward}+${win.reward} PKR PKR</div>
-                            </div</div>
-                            </div>
-                       >
-                        `).join(' `).join('')}
-')}
-                    </                    </div>
-                `div>
-                `;
-           ;
-            }
-            
-            container }
-            
-            container.innerHTML =.innerHTML = `
-                ${win `
-                ${winningHtmlningHtml}
-                <div style="}
-                <div style="text-align: center; margintext-align: center; margin: : 15px15px 0;">
-                    0;">
-                    <strong <strong>Pick your lucky>Pick your lucky number for number for tomorrow:</ tomorrow:</strong>
-                </strong>
-                </div>
-div>
-                <div class                <div class="lucky-numbers-grid">
-                    ${="lucky-numbers-grid">
-                    ${numbersHtml}
-                </divnumbersHtml}
-                </div>
-               >
-                <div style="text-align <div style="text-align: center; color: #: center; color: #aaa;aaa; font-size:  font-size: 14px14px; margin-top:; margin-top: 15 15px;">
-                   px;">
-                    ⏰ ⏰ You can You can pick only ONE number pick only ONE number per day. Selections reset per day. Selections reset daily at 11 daily at 11:00 PM PK:00 PM PKT.
-                </div>
-T.
-                </div>
-                ${                ${winsHtml}
-            `winsHtml}
-            `;
-        }
-
-        async function;
-        }
-
-        async function selectLuckyNumber selectLuckyNumber(number)(number) {
-            if (!confirm(` {
-            if (!confirm(`Select number ${numberSelect number ${number} for} for tomorrow's lucky draw tomorrow's lucky draw? You cannot change it later? You cannot change it later.`)) {
-.`)) {
-                return                return;
-            }
-            
-;
-            }
-            
-            try {
-                           try {
-                const response = await const response = await fetch('/ fetch('/selectLuckyNumberselectLuckyNumber', {
-                    method', {
-                    method: 'POST',
-: 'POST',
-                    headers                    headers: { 'Content: { 'Content-Type':-Type': 'application/json' },
-                    'application/json' },
-                    body: body: JSON.stringify({ number JSON.stringify({ number: number: number })
-                });
-                
-                const result = })
-                });
-                
-                const result = await response.json();
-                if (result.success) await response.json();
-                if (result.success) {
-                    showAlert(result.message, ' {
-                    showAlert(result.messagesuccess');
-, 'success');
-                    loadLuckyDraw                    loadLuckyDrawStatus();
-                } elseStatus();
-                } else {
-                    {
-                    showAlert(result.message, ' showAlert(result.message, 'error');
-error');
-                }
-                }
-            } catch (            } catch (error) {
-               error) {
-                console.error('Error selecting number console.error('Error selecting number:', error);
-               :', error);
-                showAlert('Error selecting number showAlert('Error selecting number', '', 'error');
-error');
-            }
-        }
-
-            }
-        }
-
-        document        document.addEventListener('DOMContent.addEventListener('DOMContentLoaded',Loaded', () => {
-            () => {
-            loadProfile loadProfileData();
-            loadDepositData();
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProfileData();
             loadDepositMethods();
-            loadMethods();
-            loadLuckyDrawStatusLuckyDrawStatus();
-        });
-    </script();
         });
     </script>
 </body>
->
-</</htmlbody>
 </html>
