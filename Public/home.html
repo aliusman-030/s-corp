@@ -55,6 +55,7 @@
         }
         .btn:hover { background: #cc0000; }
         .btn-secondary { background: #333; }
+        .btn-secondary:hover { background: #444; }
         
         .cards-grid {
             display: grid;
@@ -158,6 +159,7 @@
         }
         .lucky-number-box:hover { transform: translateY(-5px); border-color: #ff0000; }
         .lucky-number-box.selected { border-color: #4CAF50; background: linear-gradient(135deg, #1a3c1a, #0a2a0a); }
+        .lucky-number-box.disabled { opacity: 0.5; cursor: not-allowed; }
         .lucky-number { font-size: 32px; font-weight: bold; color: #ff0000; }
         .winning-badge {
             background: linear-gradient(135deg, #ffd700, #ff8c00);
@@ -320,7 +322,7 @@
         };
 
         function showAlert(message, type) {
-            var alertDiv = document.getElementById('alertMessage');
+            const alertDiv = document.getElementById('alertMessage');
             alertDiv.textContent = message;
             alertDiv.className = 'alert alert-' + type;
             alertDiv.style.display = 'block';
@@ -328,7 +330,7 @@
         }
 
         function copyReferralLink() {
-            var link = document.getElementById('referralLink').textContent;
+            const link = document.getElementById('referralLink').textContent;
             navigator.clipboard.writeText(link);
             showAlert('Referral link copied!', 'success');
         }
@@ -341,16 +343,16 @@
 
         async function loadDepositMethods() {
             try {
-                var res = await fetch('/getDepositMethods');
-                var methods = await res.json();
-                var container = document.getElementById('depositMethods');
+                const res = await fetch('/getDepositMethods');
+                const methods = await res.json();
+                const container = document.getElementById('depositMethods');
                 if (!methods || methods.length === 0) {
                     container.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">No deposit methods available</div>';
                     return;
                 }
-                var html = '';
-                for (var i = 0; i < methods.length; i++) {
-                    var m = methods[i];
+                let html = '';
+                for (let i = 0; i < methods.length; i++) {
+                    const m = methods[i];
                     html += '<div class="method-card"><div class="method-name">' + m.name + '</div><div class="method-number">' + m.number + '</div><button class="copy-btn" onclick="navigator.clipboard.writeText(\'' + m.number + '\'); showAlert(\'Copied!\', \'success\')">Copy Number</button></div>';
                 }
                 container.innerHTML = html;
@@ -359,7 +361,7 @@
 
         async function loadProfileData() {
             try {
-                var res = await fetch('/profileData');
+                const res = await fetch('/profileData');
                 if (!res.ok) { window.location.href = '/login.html'; return; }
                 userData = await res.json();
                 updateDashboard(userData);
@@ -371,16 +373,16 @@
             document.getElementById('userEmail').textContent = data.email;
             document.getElementById('referralLink').textContent = window.location.origin + '/signup.html?ref=' + data.referral;
             
-            var balance = parseFloat(data.amount);
-            var limit = parseFloat(data.withdrawalLimit);
+            const balance = parseFloat(data.amount);
+            const limit = parseFloat(data.withdrawalLimit);
             document.getElementById('currentBalance').textContent = balance.toFixed(2);
             document.getElementById('withdrawalLimit').textContent = limit.toFixed(2) + ' PKR';
             
-            var progress = limit > 0 ? Math.min((balance / limit) * 100, 100) : 0;
+            const progress = limit > 0 ? Math.min((balance / limit) * 100, 100) : 0;
             document.getElementById('withdrawalProgress').style.width = progress + '%';
             
-            var withdrawBtn = document.getElementById('requestWithdrawalBtn');
-            var eligibilityDiv = document.getElementById('withdrawEligibility');
+            const withdrawBtn = document.getElementById('requestWithdrawalBtn');
+            const eligibilityDiv = document.getElementById('withdrawEligibility');
             
             if (balance >= limit && limit > 0 && data.withdrawalMethod) {
                 eligibilityDiv.innerHTML = '<span style="color: #4CAF50;">✓ Eligible for withdrawal!</span>';
@@ -399,14 +401,14 @@
             document.getElementById('referralEarnings').textContent = (data.referralEarnings || 0) + ' PKR';
             
             if (data.plan && data.plan !== '') {
-                var plan = PLANS[data.plan];
+                const plan = PLANS[data.plan];
                 document.getElementById('currentPlanInfo').innerHTML = '<div style="text-align: center;"><div style="font-size: 24px; color: #ff0000; font-weight: bold;">' + data.plan + '</div><div style="font-size: 20px; margin: 10px 0;">' + plan.price + ' PKR</div><div style="color: #4CAF50;">✓ ' + (data.grantedVideos ? 'Video Access Active' : 'Awaiting Payment Approval') + '</div></div>';
                 document.getElementById('planVideos').textContent = plan.dailyVideos;
                 document.getElementById('planCommission').textContent = plan.videoCommission;
                 document.getElementById('planWithdrawalLimit').textContent = plan.withdrawalLimit;
                 document.getElementById('planInstructions').style.display = 'block';
                 
-                var accessDiv = document.getElementById('videoAccessStatus');
+                const accessDiv = document.getElementById('videoAccessStatus');
                 if (!data.grantedVideos) {
                     accessDiv.innerHTML = '<div class="alert alert-info" style="display: block; text-align: center;">⏳ Video access pending. Please upload payment proof in Profile.</div>';
                 } else {
@@ -422,15 +424,15 @@
         }
 
         function loadPlans(currentPlan) {
-            var container = document.getElementById('plansContainer');
+            const container = document.getElementById('plansContainer');
             container.innerHTML = '';
             
-            var planNames = ['Plan 1', 'Plan 2', 'Plan 3'];
-            for (var i = 0; i < planNames.length; i++) {
-                var name = planNames[i];
-                var plan = PLANS[name];
-                var isCurrent = name === currentPlan;
-                var card = document.createElement('div');
+            const planNames = ['Plan 1', 'Plan 2', 'Plan 3'];
+            for (let i = 0; i < planNames.length; i++) {
+                const name = planNames[i];
+                const plan = PLANS[name];
+                const isCurrent = name === currentPlan;
+                const card = document.createElement('div');
                 card.className = 'plan-card' + (isCurrent ? ' selected' : '');
                 card.innerHTML = '<div class="plan-name">' + name + '</div><div class="plan-price">' + plan.price + ' PKR</div><ul class="plan-features"><li>' + plan.dailyVideos + ' video' + (plan.dailyVideos !== 1 ? 's' : '') + ' per day</li><li>' + plan.videoCommission + ' PKR per video watched</li><li>Withdrawal limit: ' + plan.withdrawalLimit + ' PKR</li><li>Referral commission: ' + plan.referralCommission + ' PKR</li></ul><button class="btn ' + (isCurrent ? 'btn-secondary' : '') + '" onclick="selectPlan(\'' + name + '\')" ' + (isCurrent ? 'disabled' : '') + ' style="width: 100%;">' + (isCurrent ? 'Current Plan' : 'Select Plan') + '</button>';
                 container.appendChild(card);
@@ -440,12 +442,12 @@
         async function selectPlan(planName) {
             if (!confirm('Select ' + planName + ' for ' + PLANS[planName].price + ' PKR?')) return;
             try {
-                var res = await fetch('/selectPlan', {
+                const res = await fetch('/selectPlan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ plan: planName })
                 });
-                var result = await res.json();
+                const result = await res.json();
                 if (result.success) {
                     showAlert(planName + ' selected! Please deposit ' + result.planPrice + ' PKR and upload payment proof in Profile.', 'success');
                     loadProfileData();
@@ -462,8 +464,8 @@
             }
             if (!confirm('Request withdrawal? Admin will process your request.')) return;
             try {
-                var res = await fetch('/requestWithdrawal', { method: 'POST' });
-                var result = await res.json();
+                const res = await fetch('/requestWithdrawal', { method: 'POST' });
+                const result = await res.json();
                 if (result.success) {
                     showAlert('Withdrawal requested!', 'success');
                     loadProfileData();
@@ -476,8 +478,11 @@
         // ===== LUCKY DRAW FUNCTIONS =====
         async function loadLuckyDrawStatus() {
             try {
-                var res = await fetch('/getLuckyDrawStatus');
-                var data = await res.json();
+                console.log('Loading lucky draw status...');
+                const res = await fetch('/getLuckyDrawStatus');
+                const data = await res.json();
+                console.log('Lucky draw data:', data);
+                
                 if (data.success) {
                     displayLuckyDraw(data);
                 } else {
@@ -490,23 +495,35 @@
         }
 
         function displayLuckyDraw(data) {
-            var container = document.getElementById('luckyDrawContainer');
+            // Check if user has a plan
+            if (!userData || !userData.plan || userData.plan === '') {
+                document.getElementById('luckyDrawContainer').innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #ff0000;">
+                        ⚠️ You need to select a plan first to participate in Lucky Draw!
+                        <br><br>
+                        <button class="btn" onclick="document.getElementById('plansContainer').scrollIntoView({behavior: 'smooth'})" style="width: auto;">Select a Plan</button>
+                    </div>
+                `;
+                return;
+            }
             
-            var winningHtml = '';
+            const container = document.getElementById('luckyDrawContainer');
+            
+            let winningHtml = '';
             if (data.isAnnounced && data.winningNumber) {
                 winningHtml = '<div class="winning-badge"><div>🏆 Today\'s Winning Number 🏆</div><div class="winning-number">' + data.winningNumber + '</div><div>Prize: <span class="reward-amount">' + data.rewardAmount + ' PKR</span></div></div>';
             } else {
-                winningHtml = '<div class="winning-badge" style="background: #333; color: #fff;"><div>⏰ Next Draw: 11:00 PM Pakistan Time</div><div>Prize: ' + (data.rewardAmount ? data.rewardAmount + ' PKR' : 'Waiting for admin to set prize') + '</div></div>';
+                winningHtml = '<div class="winning-badge" style="background: #333; color: #fff;"><div>⏰ Next Draw: 12:00 AM Midnight Pakistan Time</div><div>Prize: ' + (data.rewardAmount ? data.rewardAmount + ' PKR' : 'Waiting for admin to set prize') + '</div></div>';
             }
             
-            var numbersHtml = '<div class="lucky-numbers-grid">';
-            for (var i = 1; i <= 12; i++) {
-                var boxClass = 'lucky-number-box';
-                var isSelected = (data.userSelectedNumber === i);
+            let numbersHtml = '<div class="lucky-numbers-grid">';
+            for (let i = 1; i <= 12; i++) {
+                let boxClass = 'lucky-number-box';
+                let isSelected = (data.userSelectedNumber === i);
                 if (isSelected) boxClass += ' selected';
                 if (!data.canSelect || data.isAnnounced) boxClass += ' disabled';
                 
-                var onclickAttr = '';
+                let onclickAttr = '';
                 if (data.canSelect && !data.isAnnounced && !isSelected) {
                     onclickAttr = ' onclick="selectLuckyNumber(' + i + ')"';
                 }
@@ -514,26 +531,35 @@
             }
             numbersHtml += '</div>';
             
-            container.innerHTML = winningHtml + '<div style="text-align: center; margin: 15px 0;"><strong>Pick your lucky number for tomorrow:</strong></div>' + numbersHtml + '<div style="text-align: center; color: #aaa; font-size: 14px; margin-top: 15px;">⏰ You can pick only ONE number per day. Selections reset daily at 11:00 PM PKT.</div>';
+            container.innerHTML = winningHtml + '<div style="text-align: center; margin: 15px 0;"><strong>Pick your lucky number for tomorrow:</strong></div>' + numbersHtml + '<div style="text-align: center; color: #aaa; font-size: 14px; margin-top: 15px;">⏰ You can pick only ONE number per day. Selections reset daily at 12:00 AM Midnight PKT.</div>';
         }
 
         async function selectLuckyNumber(number) {
-            if (!confirm('Select number ' + number + ' for tomorrow\'s lucky draw? You cannot change it later.')) return;
+            console.log('Selecting number:', number);
+            
+            if (!confirm('Select number ' + number + ' for tomorrow\'s lucky draw? You cannot change it later.')) {
+                return;
+            }
+            
             try {
-                var res = await fetch('/selectLuckyNumber', {
+                const response = await fetch('/selectLuckyNumber', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ number: number })
                 });
-                var result = await res.json();
+                
+                const result = await response.json();
+                console.log('Server response:', result);
+                
                 if (result.success) {
                     showAlert(result.message, 'success');
                     loadLuckyDrawStatus();
                 } else {
                     showAlert(result.message, 'error');
                 }
-            } catch(e) {
-                showAlert('Error selecting number', 'error');
+            } catch(error) {
+                console.error('Error selecting number:', error);
+                showAlert('Error selecting number. Please try again.', 'error');
             }
         }
 
