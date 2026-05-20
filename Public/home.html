@@ -55,7 +55,6 @@
         }
         .btn:hover { background: #cc0000; }
         .btn-secondary { background: #333; }
-        .btn-secondary:hover { background: #444; }
         
         .cards-grid {
             display: grid;
@@ -288,7 +287,7 @@
             <div style="margin-top: 20px;">
                 <p style="color: #ff0000; font-weight: bold;">💵 Referral Commission:</p>
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                    <thead><tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></tr></thead>
+                    <thead><tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></table></thead>
                     <tbody>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 1 (500 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">50 PKR</td></tr>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 2 (1000 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">80 PKR</td></tr>
@@ -478,11 +477,8 @@
         // ===== LUCKY DRAW FUNCTIONS =====
         async function loadLuckyDrawStatus() {
             try {
-                console.log('Loading lucky draw status...');
                 const res = await fetch('/getLuckyDrawStatus');
                 const data = await res.json();
-                console.log('Lucky draw data:', data);
-                
                 if (data.success) {
                     displayLuckyDraw(data);
                 } else {
@@ -495,18 +491,6 @@
         }
 
         function displayLuckyDraw(data) {
-            // Check if user has a plan
-            if (!userData || !userData.plan || userData.plan === '') {
-                document.getElementById('luckyDrawContainer').innerHTML = `
-                    <div style="text-align: center; padding: 20px; color: #ff0000;">
-                        ⚠️ You need to select a plan first to participate in Lucky Draw!
-                        <br><br>
-                        <button class="btn" onclick="document.getElementById('plansContainer').scrollIntoView({behavior: 'smooth'})" style="width: auto;">Select a Plan</button>
-                    </div>
-                `;
-                return;
-            }
-            
             const container = document.getElementById('luckyDrawContainer');
             
             let winningHtml = '';
@@ -535,8 +519,6 @@
         }
 
         async function selectLuckyNumber(number) {
-            console.log('Selecting number:', number);
-            
             if (!confirm('Select number ' + number + ' for tomorrow\'s lucky draw? You cannot change it later.')) {
                 return;
             }
@@ -549,7 +531,6 @@
                 });
                 
                 const result = await response.json();
-                console.log('Server response:', result);
                 
                 if (result.success) {
                     showAlert(result.message, 'success');

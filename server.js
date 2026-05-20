@@ -628,7 +628,7 @@ app.get('/force-create-admin', async (req, res) => {
     }
 });
 
-// ===== LUCKY DRAW API (COMPLETELY FIXED - WORKING) =====
+// ===== LUCKY DRAW API =====
 
 app.get('/getLuckyDrawStatus', requireLogin, async (req, res) => {
     try {
@@ -670,7 +670,7 @@ app.post('/selectLuckyNumber', requireLogin, async (req, res) => {
     const { number } = req.body;
     const userEmail = req.session.user;
     
-    console.log(`🎲 [DEBUG] Select lucky number: ${userEmail} wants number ${number}`);
+    console.log(`🎲 User ${userEmail} selecting number ${number}`);
     
     if (!number || number < 1 || number > 12) {
         return res.json({ success: false, message: 'Please select a number between 1 and 12' });
@@ -684,13 +684,11 @@ app.post('/selectLuckyNumber', requireLogin, async (req, res) => {
             return res.json({ success: false, message: 'User not found' });
         }
         
-        // Check if already selected today
         if (user.luckyDraw && user.luckyDraw.lastResetDate === today && user.luckyDraw.selectedNumber) {
-            return res.json({ success: false, message: 'You have already selected a number for today!' });
+            return res.json({ success: false, message: `You have already selected a number for today!` });
         }
         
-        // Save selection
-        const result = await usersCollection.updateOne(
+        await usersCollection.updateOne(
             { email: userEmail },
             { 
                 $set: { 
@@ -699,16 +697,14 @@ app.post('/selectLuckyNumber', requireLogin, async (req, res) => {
                         selectedAt: new Date().toISOString(), 
                         lastResetDate: today 
                     } 
-                }
+                } 
             }
         );
-        
-        console.log(`✅ Lucky number saved: ${userEmail} selected ${number}, result: ${JSON.stringify(result)}`);
         
         res.json({ success: true, message: `You selected number ${number}! Good luck!` });
     } catch (error) {
         console.error('Select number error:', error);
-        res.json({ success: false, message: 'Error saving your selection: ' + error.message });
+        res.json({ success: false, message: 'Error saving your selection' });
     }
 });
 
