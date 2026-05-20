@@ -287,7 +287,9 @@
             <div style="margin-top: 20px;">
                 <p style="color: #ff0000; font-weight: bold;">💵 Referral Commission:</p>
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                    <thead><tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></tr></thead>
+                    <thead>
+                        <tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></tr>
+                    </thead>
                     <tbody>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 1 (500 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">50 PKR</td></tr>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 2 (1000 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">80 PKR</td></tr>
@@ -365,7 +367,7 @@
                 userData = await res.json();
                 updateDashboard(userData);
                 if (userData.isAdmin) document.getElementById('adminLink').classList.remove('hidden');
-                // After loading user data, refresh lucky draw to update selection status
+                // Reload lucky draw after user data loads
                 loadLuckyDrawStatus();
             } catch(e) { console.error(e); }
         }
@@ -495,8 +497,9 @@
         function displayLuckyDraw(data) {
             const container = document.getElementById('luckyDrawContainer');
             
-            // Check if user has a plan (from userData, not from API)
-            const hasValidPlan = userData && (userData.plan || userData.grantedVideos === true);
+            // Check if user has a plan
+            const hasValidPlan = userData && (userData.plan && userData.plan !== '');
+            const canParticipate = hasValidPlan === true;
             
             let winningHtml = '';
             if (data.isAnnounced && data.winningNumber) {
@@ -505,11 +508,23 @@
                 winningHtml = '<div class="winning-badge" style="background: #333; color: #fff;"><div>⏰ Next Draw: 12:00 AM Midnight Pakistan Time</div><div>Prize: ' + (data.rewardAmount ? data.rewardAmount + ' PKR' : 'Waiting for admin to set prize') + '</div></div>';
             }
             
+            // If user cannot participate, show message
+            if (!canParticipate) {
+                container.innerHTML = winningHtml + `
+                    <div style="text-align: center; padding: 30px; background: #2a2a2a; border-radius: 12px; margin-top: 20px;">
+                        <div style="font-size: 48px; margin-bottom: 15px;">🔒</div>
+                        <h3>You need a plan to participate in Lucky Draw!</h3>
+                        <p style="color: #aaa; margin-top: 10px;">Please select a plan from the "Select or Upgrade Plan" section above.</p>
+                        <button class="btn" onclick="document.getElementById('plansContainer').scrollIntoView({behavior: 'smooth'})" style="width: auto; margin-top: 15px;">Select a Plan</button>
+                    </div>
+                `;
+                return;
+            }
+            
             let numbersHtml = '<div class="lucky-numbers-grid">';
             for (let i = 1; i <= 12; i++) {
                 let isSelected = (data.userSelectedNumber === i);
-                // User can select if they have a plan AND haven't selected yet AND draw not announced
-                let canSelectNumber = hasValidPlan && !isSelected && !data.isAnnounced;
+                let canSelectNumber = !isSelected && !data.isAnnounced;
                 
                 let boxClass = 'lucky-number-box';
                 if (isSelected) boxClass += ' selected';
@@ -517,9 +532,7 @@
                 
                 let onclickAttr = '';
                 if (canSelectNumber) {
-                    onclickAttr = ' onclick="selectLuckyNumber(' + i + ')" style="cursor:pointer;"';
-                } else if (!hasValidPlan) {
-                    onclickAttr = ' title="Please select a plan first to participate in Lucky Draw!"';
+                    onclickAttr = ' onclick="selectLuckyNumber(' + i + ')"';
                 }
                 
                 numbersHtml += '<div class="' + boxClass + '"' + onclickAttr + '><div class="lucky-number">' + i + '</div>' + (isSelected ? '<div style="font-size: 12px; color: #4CAF50;">✓ Selected</div>' : '') + '</div>';
@@ -530,7 +543,8 @@
         }
 
         async function selectLuckyNumber(number) {
-            if (!userData || (!userData.plan && !userData.grantedVideos)) {
+            // Double check user has plan
+            if (!userData || (!userData.plan || userData.plan === '')) {
                 showAlert('Please select a plan first to participate in Lucky Draw!', 'error');
                 return;
             }
