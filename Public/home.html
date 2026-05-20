@@ -287,7 +287,7 @@
             <div style="margin-top: 20px;">
                 <p style="color: #ff0000; font-weight: bold;">💵 Referral Commission:</p>
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                    <thead><tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></table></thead>
+                    <thead><tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></tr></thead>
                     <tbody>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 1 (500 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">50 PKR</td></tr>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 2 (1000 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">80 PKR</td></tr>
@@ -365,6 +365,8 @@
                 userData = await res.json();
                 updateDashboard(userData);
                 if (userData.isAdmin) document.getElementById('adminLink').classList.remove('hidden');
+                // After loading user data, refresh lucky draw to update selection status
+                loadLuckyDrawStatus();
             } catch(e) { console.error(e); }
         }
 
@@ -493,6 +495,9 @@
         function displayLuckyDraw(data) {
             const container = document.getElementById('luckyDrawContainer');
             
+            // Check if user has a plan (from userData, not from API)
+            const hasValidPlan = userData && (userData.plan || userData.grantedVideos === true);
+            
             let winningHtml = '';
             if (data.isAnnounced && data.winningNumber) {
                 winningHtml = '<div class="winning-badge"><div>🏆 Today\'s Winning Number 🏆</div><div class="winning-number">' + data.winningNumber + '</div><div>Prize: <span class="reward-amount">' + data.rewardAmount + ' PKR</span></div></div>';
@@ -502,15 +507,21 @@
             
             let numbersHtml = '<div class="lucky-numbers-grid">';
             for (let i = 1; i <= 12; i++) {
-                let boxClass = 'lucky-number-box';
                 let isSelected = (data.userSelectedNumber === i);
+                // User can select if they have a plan AND haven't selected yet AND draw not announced
+                let canSelectNumber = hasValidPlan && !isSelected && !data.isAnnounced;
+                
+                let boxClass = 'lucky-number-box';
                 if (isSelected) boxClass += ' selected';
-                if (!data.canSelect || data.isAnnounced) boxClass += ' disabled';
+                if (!canSelectNumber && !isSelected) boxClass += ' disabled';
                 
                 let onclickAttr = '';
-                if (data.canSelect && !data.isAnnounced && !isSelected) {
-                    onclickAttr = ' onclick="selectLuckyNumber(' + i + ')"';
+                if (canSelectNumber) {
+                    onclickAttr = ' onclick="selectLuckyNumber(' + i + ')" style="cursor:pointer;"';
+                } else if (!hasValidPlan) {
+                    onclickAttr = ' title="Please select a plan first to participate in Lucky Draw!"';
                 }
+                
                 numbersHtml += '<div class="' + boxClass + '"' + onclickAttr + '><div class="lucky-number">' + i + '</div>' + (isSelected ? '<div style="font-size: 12px; color: #4CAF50;">✓ Selected</div>' : '') + '</div>';
             }
             numbersHtml += '</div>';
@@ -519,6 +530,11 @@
         }
 
         async function selectLuckyNumber(number) {
+            if (!userData || (!userData.plan && !userData.grantedVideos)) {
+                showAlert('Please select a plan first to participate in Lucky Draw!', 'error');
+                return;
+            }
+            
             if (!confirm('Select number ' + number + ' for tomorrow\'s lucky draw? You cannot change it later.')) {
                 return;
             }
@@ -547,7 +563,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadProfileData();
             loadDepositMethods();
-            loadLuckyDrawStatus();
         });
     </script>
 </body>
