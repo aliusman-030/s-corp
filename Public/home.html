@@ -287,9 +287,7 @@
             <div style="margin-top: 20px;">
                 <p style="color: #ff0000; font-weight: bold;">💵 Referral Commission:</p>
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                    <thead>
-                        <tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></tr>
-                    </thead>
+                    <thead><tr><th style="background: #333; padding: 10px;">Plan</th><th style="background: #333; padding: 10px;">Your Commission</th></tr></thead>
                     <tbody>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 1 (500 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">50 PKR</td></tr>
                         <tr><td style="padding: 8px; border-bottom: 1px solid #444;">Plan 2 (1000 PKR)</td><td style="padding: 8px; border-bottom: 1px solid #444;">80 PKR</td></tr>
@@ -367,7 +365,6 @@
                 userData = await res.json();
                 updateDashboard(userData);
                 if (userData.isAdmin) document.getElementById('adminLink').classList.remove('hidden');
-                // Reload lucky draw after user data loads
                 loadLuckyDrawStatus();
             } catch(e) { console.error(e); }
         }
@@ -499,17 +496,16 @@
             
             // Check if user has a plan
             const hasValidPlan = userData && (userData.plan && userData.plan !== '');
-            const canParticipate = hasValidPlan === true;
             
             let winningHtml = '';
             if (data.isAnnounced && data.winningNumber) {
-                winningHtml = '<div class="winning-badge"><div>🏆 Today\'s Winning Number 🏆</div><div class="winning-number">' + data.winningNumber + '</div><div>Prize: <span class="reward-amount">' + data.rewardAmount + ' PKR</span></div></div>';
+                winningHtml = '<div class="winning-badge"><div>🏆 Last Draw Winning Number 🏆</div><div class="winning-number">' + data.winningNumber + '</div><div>Prize: <span class="reward-amount">' + data.rewardAmount + ' PKR</span></div></div>';
             } else {
-                winningHtml = '<div class="winning-badge" style="background: #333; color: #fff;"><div>⏰ Next Draw: 12:00 AM Midnight Pakistan Time</div><div>Prize: ' + (data.rewardAmount ? data.rewardAmount + ' PKR' : 'Waiting for admin to set prize') + '</div></div>';
+                winningHtml = '<div class="winning-badge" style="background: #333; color: #fff;"><div>⏰ Next Draw: Tomorrow 12:00 AM</div><div>Prize: ' + (data.rewardAmount ? data.rewardAmount + ' PKR' : 'Waiting for admin to set prize') + '</div></div>';
             }
             
             // If user cannot participate, show message
-            if (!canParticipate) {
+            if (!hasValidPlan) {
                 container.innerHTML = winningHtml + `
                     <div style="text-align: center; padding: 30px; background: #2a2a2a; border-radius: 12px; margin-top: 20px;">
                         <div style="font-size: 48px; margin-bottom: 15px;">🔒</div>
@@ -524,7 +520,8 @@
             let numbersHtml = '<div class="lucky-numbers-grid">';
             for (let i = 1; i <= 12; i++) {
                 let isSelected = (data.userSelectedNumber === i);
-                let canSelectNumber = !isSelected && !data.isAnnounced;
+                // User can ALWAYS select if they have a plan and haven't selected yet
+                let canSelectNumber = !isSelected;
                 
                 let boxClass = 'lucky-number-box';
                 if (isSelected) boxClass += ' selected';
@@ -539,7 +536,7 @@
             }
             numbersHtml += '</div>';
             
-            container.innerHTML = winningHtml + '<div style="text-align: center; margin: 15px 0;"><strong>Pick your lucky number for tomorrow:</strong></div>' + numbersHtml + '<div style="text-align: center; color: #aaa; font-size: 14px; margin-top: 15px;">⏰ You can pick only ONE number per day. Selections reset daily at 12:00 AM Midnight PKT.</div>';
+            container.innerHTML = winningHtml + '<div style="text-align: center; margin: 15px 0;"><strong>Pick your lucky number for tomorrow\'s draw:</strong></div>' + numbersHtml + '<div style="text-align: center; color: #aaa; font-size: 14px; margin-top: 15px;">⏰ You can pick only ONE number per day. Selections are for the next draw.</div>';
         }
 
         async function selectLuckyNumber(number) {
@@ -549,7 +546,7 @@
                 return;
             }
             
-            if (!confirm('Select number ' + number + ' for tomorrow\'s lucky draw? You cannot change it later.')) {
+            if (!confirm('Select number ' + number + ' for the next lucky draw? You cannot change it later.')) {
                 return;
             }
             
