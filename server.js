@@ -628,7 +628,7 @@ app.get('/force-create-admin', async (req, res) => {
     }
 });
 
-// ===== LUCKY DRAW API =====
+// ===== LUCKY DRAW API (FIXED - WORKS WITH grantedVideos) =====
 
 app.get('/getLuckyDrawStatus', requireLogin, async (req, res) => {
     try {
@@ -642,6 +642,13 @@ app.get('/getLuckyDrawStatus', requireLogin, async (req, res) => {
         
         let canSelect = true;
         let userSelectedNumber = null;
+        
+        // FIX: Check if user has plan OR has grantedVideos = true
+        const hasValidPlan = (user.plan && user.plan !== '') || user.grantedVideos === true;
+        
+        if (!hasValidPlan) {
+            canSelect = false;
+        }
         
         if (user.luckyDraw && user.luckyDraw.lastResetDate === today && user.luckyDraw.selectedNumber) {
             canSelect = false;
@@ -658,7 +665,8 @@ app.get('/getLuckyDrawStatus', requireLogin, async (req, res) => {
             canSelect: canSelect,
             userSelectedNumber: userSelectedNumber,
             nextDrawTime: "12:00 AM Midnight Pakistan Time",
-            wins: wins.slice(-5)
+            wins: wins.slice(-5),
+            hasPlan: hasValidPlan
         });
     } catch (error) {
         console.error('Lucky draw error:', error);
@@ -684,6 +692,13 @@ app.post('/selectLuckyNumber', requireLogin, async (req, res) => {
             return res.json({ success: false, message: 'User not found' });
         }
         
+        // FIX: Check if user has plan OR has grantedVideos = true
+        const hasValidPlan = (user.plan && user.plan !== '') || user.grantedVideos === true;
+        
+        if (!hasValidPlan) {
+            return res.json({ success: false, message: 'You need to have a plan to participate in Lucky Draw!' });
+        }
+        
         if (user.luckyDraw && user.luckyDraw.lastResetDate === today && user.luckyDraw.selectedNumber) {
             return res.json({ success: false, message: `You have already selected a number for today!` });
         }
@@ -700,6 +715,8 @@ app.post('/selectLuckyNumber', requireLogin, async (req, res) => {
                 } 
             }
         );
+        
+        console.log(`✅ User ${userEmail} selected number ${number}`);
         
         res.json({ success: true, message: `You selected number ${number}! Good luck!` });
     } catch (error) {
