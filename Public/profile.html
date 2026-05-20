@@ -167,7 +167,6 @@
         .upload-name { color: white; font-weight: 500; word-break: break-all; }
         .upload-meta { color: #aaa; font-size: 14px; }
         
-        /* S-Coin Styles */
         .coin-section {
             background: #1a2a1a;
             border: 1px solid #4CAF50;
@@ -460,18 +459,22 @@
         // ===== S-COIN FUNCTIONS =====
         async function loadCoinWallet() {
             try {
+                // Get coin price first
                 const priceRes = await fetch('/getCoinSettings');
                 const priceData = await priceRes.json();
                 if (priceData.success) {
                     coinPrice = priceData.currentPrice;
+                } else {
+                    coinPrice = 10;
                 }
                 
+                // Get user data with coin balance
                 const res = await fetch('/profileData');
                 const data = await res.json();
                 displayCoinWallet(data);
             } catch(error) {
                 console.error('Error loading coin wallet:', error);
-                document.getElementById('coinWalletContainer').innerHTML = '<div style="text-align: center; padding: 20px; color: #ff0000;">Error loading wallet</div>';
+                document.getElementById('coinWalletContainer').innerHTML = '<div style="text-align: center; padding: 20px; color: #ff0000;">Error loading wallet. Please refresh the page.</div>';
             }
         }
 

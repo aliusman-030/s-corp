@@ -145,6 +145,7 @@ async function initializeDB() {
             console.log('✓ Created company balance');
         }
         
+        // Create coin settings if not exists
         const coinSettingsExist = await db.collection('coinsettings').findOne({ _id: 'settings' });
         if (!coinSettingsExist) {
             await db.collection('coinsettings').insertOne({
@@ -363,6 +364,7 @@ app.get('/profileData', requireLogin, async (req, res) => {
             grantedVideos = assignedKeys.map(key => ({ key, url: allVideos[key], isWatched: (user.watchedKeys || []).includes(key) })).filter(v => v.url && v.url.trim());
         }
         
+        // Get coin settings
         const coinSettings = await db.collection('coinsettings').findOne({ _id: 'settings' });
         const coinPrice = coinSettings?.currentPrice || 10;
         
@@ -382,7 +384,10 @@ app.get('/profileData', requireLogin, async (req, res) => {
             videoCommission: planData ? planData.videoCommission : 0, watchedKeys: user.watchedKeys || [],
             coinBalance: user.coinBalance || 0, coinPrice: coinPrice, coinTransactions: user.coinTransactions || []
         });
-    } catch (e) { res.status(500).json({ message: 'Server error' }); }
+    } catch (e) { 
+        console.error('Profile data error:', e);
+        res.status(500).json({ message: 'Server error', error: e.message }); 
+    }
 });
 
 // GET DEPOSIT METHODS
@@ -636,7 +641,6 @@ app.get('/force-create-admin', async (req, res) => {
 });
 
 // ===== LUCKY DRAW API =====
-
 app.get('/getLuckyDrawStatus', requireLogin, async (req, res) => {
     try {
         const user = await usersCollection.findOne({ email: req.session.user });
@@ -841,14 +845,22 @@ app.post('/forceLuckyDrawReset', requireAdmin, async (req, res) => {
     }
 });
 
-// ===== S-COIN SYSTEM =====
-
+// ===== S-COIN SETTINGS ENDPOINT =====
 app.get('/getCoinSettings', async (req, res) => {
     try {
         const settings = await db.collection('coinsettings').findOne({ _id: 'settings' });
-        res.json({ success: true, currentPrice: settings?.currentPrice || 10 });
+        if (!settings) {
+            await db.collection('coinsettings').insertOne({
+                _id: 'settings',
+                currentPrice: 10,
+                lastUpdated: new Date().toISOString()
+            });
+            return res.json({ success: true, currentPrice: 10 });
+        }
+        res.json({ success: true, currentPrice: settings.currentPrice || 10 });
     } catch (error) {
-        res.json({ success: false, message: error.message });
+        console.error('Coin settings error:', error);
+        res.json({ success: false, currentPrice: 10, message: error.message });
     }
 });
 
