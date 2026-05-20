@@ -228,10 +228,18 @@ async function processReferralCommission(childEmail, planName) {
     return true;
 }
 
+// ===== LUCKY DRAW HELPER FUNCTIONS =====
 function getTodayPKT() {
     const now = new Date();
     const pktDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
     return pktDate.toISOString().split('T')[0];
+}
+
+function getTomorrowPKT() {
+    const today = getTodayPKT();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
 }
 
 function requireLogin(req, res, next) {
@@ -628,29 +636,32 @@ app.get('/force-create-admin', async (req, res) => {
     }
 });
 
-// ===== LUCKY DRAW API (FIXED - WORKS WITH grantedVideos) =====
+// ===== LUCKY DRAW API (FIXED - Users select for NEXT draw) =====
 
 app.get('/getLuckyDrawStatus', requireLogin, async (req, res) => {
     try {
         const user = await usersCollection.findOne({ email: req.session.user });
         const today = getTodayPKT();
+        const tomorrow = getTomorrowPKT();
         
-        const draw = await luckyDrawCollection.findOne({ date: today });
-        const winningNumber = draw?.winningNumber || null;
-        const rewardAmount = draw?.rewardAmount || null;
-        const isAnnounced = draw?.isAnnounced || false;
+        // Get today's winning draw (already announced)
+        const todayDraw = await luckyDrawCollection.findOne({ date: today });
+        const winningNumber = todayDraw?.winningNumber || null;
+        const rewardAmount = todayDraw?.rewardAmount || null;
+        const isAnnounced = todayDraw?.isAnnounced || false;
         
+        // Check if user can select for tomorrow
         let canSelect = true;
         let userSelectedNumber = null;
         
-        // FIX: Check if user has plan OR has grantedVideos = true
         const hasValidPlan = (user.plan && user.plan !== '') || user.grantedVideos === true;
         
         if (!hasValidPlan) {
             canSelect = false;
         }
         
-        if (user.luckyDraw && user.luckyDraw.lastResetDate === today && user.luckyDraw.selectedNumber) {
+        // Check if user already selected for TOMORROW
+        if (user.luckyDraw && user.luckyDraw.lastResetDate === tomorrow && user.luckyDraw.selectedNumber) {
             canSelect = false;
             userSelectedNumber = user.luckyDraw.selectedNumber;
         }
@@ -666,7 +677,9 @@ app.get('/getLuckyDrawStatus', requireLogin, async (req, res) => {
             userSelectedNumber: userSelectedNumber,
             nextDrawTime: "12:00 AM Midnight Pakistan Time",
             wins: wins.slice(-5),
-            hasPlan: hasValidPlan
+            hasPlan: hasValidPlan,
+            drawDate: today,
+            selectionDate: tomorrow
         });
     } catch (error) {
         console.error('Lucky draw error:', error);
@@ -678,31 +691,33 @@ app.post('/selectLuckyNumber', requireLogin, async (req, res) => {
     const { number } = req.body;
     const userEmail = req.session.user;
     
-    console.log(`🎲 User ${userEmail} selecting number ${number}`);
+    console.log(`🎲 User ${userEmail} selecting number ${number} for next draw`);
     
     if (!number || number < 1 || number > 12) {
         return res.json({ success: false, message: 'Please select a number between 1 and 12' });
     }
     
     try {
-        const today = getTodayPKT();
+        const tomorrow = getTomorrowPKT();
         const user = await usersCollection.findOne({ email: userEmail });
         
         if (!user) {
             return res.json({ success: false, message: 'User not found' });
         }
         
-        // FIX: Check if user has plan OR has grantedVideos = true
+        // Check if user has plan
         const hasValidPlan = (user.plan && user.plan !== '') || user.grantedVideos === true;
         
         if (!hasValidPlan) {
             return res.json({ success: false, message: 'You need to have a plan to participate in Lucky Draw!' });
         }
         
-        if (user.luckyDraw && user.luckyDraw.lastResetDate === today && user.luckyDraw.selectedNumber) {
-            return res.json({ success: false, message: `You have already selected a number for today!` });
+        // Check if already selected for tomorrow
+        if (user.luckyDraw && user.luckyDraw.lastResetDate === tomorrow && user.luckyDraw.selectedNumber) {
+            return res.json({ success: false, message: `You have already selected number ${user.luckyDraw.selectedNumber} for the next draw!` });
         }
         
+        // Save selection for tomorrow's draw
         await usersCollection.updateOne(
             { email: userEmail },
             { 
@@ -710,15 +725,15 @@ app.post('/selectLuckyNumber', requireLogin, async (req, res) => {
                     luckyDraw: { 
                         selectedNumber: number, 
                         selectedAt: new Date().toISOString(), 
-                        lastResetDate: today 
+                        lastResetDate: tomorrow 
                     } 
                 } 
             }
         );
         
-        console.log(`✅ User ${userEmail} selected number ${number}`);
+        console.log(`✅ User ${userEmail} selected number ${number} for draw date ${tomorrow}`);
         
-        res.json({ success: true, message: `You selected number ${number}! Good luck!` });
+        res.json({ success: true, message: `You selected number ${number} for the next lucky draw! Good luck!` });
     } catch (error) {
         console.error('Select number error:', error);
         res.json({ success: false, message: 'Error saving your selection' });
@@ -739,13 +754,32 @@ app.post('/setWinningNumber', requireAdmin, async (req, res) => {
     try {
         const today = getTodayPKT();
         
+        // Check if already announced for today
+        const existingDraw = await luckyDrawCollection.findOne({ date: today });
+        if (existingDraw && existingDraw.isAnnounced) {
+            return res.json({ success: false, message: 'Winning number already announced for today!' });
+        }
+        
+        // Save winning number for today's draw
         await luckyDrawCollection.updateOne(
             { date: today },
-            { $set: { winningNumber, rewardAmount, isAnnounced: true, announcedAt: new Date().toISOString() } },
+            { 
+                $set: { 
+                    winningNumber: winningNumber,
+                    rewardAmount: rewardAmount,
+                    isAnnounced: true,
+                    announcedAt: new Date().toISOString()
+                }
+            },
             { upsert: true }
         );
         
-        const winners = await usersCollection.find({ "luckyDraw.selectedNumber": winningNumber, "luckyDraw.lastResetDate": today }).toArray();
+        // Find winners who selected this number for today's draw
+        const winners = await usersCollection.find({ 
+            "luckyDraw.selectedNumber": winningNumber, 
+            "luckyDraw.lastResetDate": today 
+        }).toArray();
+        
         let winnerCount = 0;
         
         for (const winner of winners) {
@@ -754,13 +788,22 @@ app.post('/setWinningNumber', requireAdmin, async (req, res) => {
                 { email: winner.email },
                 { 
                     $set: { amount: newBalance },
-                    $push: { luckyDrawWins: { date: today, number: winningNumber, reward: rewardAmount, awardedAt: new Date().toISOString() } }
+                    $push: { luckyDrawWins: { 
+                        date: today, 
+                        number: winningNumber, 
+                        reward: rewardAmount, 
+                        awardedAt: new Date().toISOString() 
+                    } }
                 }
             );
             winnerCount++;
         }
         
-        res.json({ success: true, message: `Winning number ${winningNumber} announced! ${winnerCount} users won ${rewardAmount} PKR each!` });
+        res.json({ 
+            success: true, 
+            message: `Winning number ${winningNumber} announced! ${winnerCount} users won ${rewardAmount} PKR each!`,
+            winnerCount: winnerCount
+        });
     } catch (error) {
         console.error('Set winning number error:', error);
         res.json({ success: false, message: 'Error setting winning number' });
@@ -770,27 +813,31 @@ app.post('/setWinningNumber', requireAdmin, async (req, res) => {
 app.get('/getLuckyDrawSelections', requireAdmin, async (req, res) => {
     try {
         const today = getTodayPKT();
-        const draw = await luckyDrawCollection.findOne({ date: today });
+        const tomorrow = getTomorrowPKT();
         
+        const todayDraw = await luckyDrawCollection.findOne({ date: today });
+        const winningNumber = todayDraw?.winningNumber || null;
+        const rewardAmount = todayDraw?.rewardAmount || null;
+        
+        // Get selections for tomorrow's draw
         const selections = [];
-        const users = await usersCollection.find({ "luckyDraw.lastResetDate": today }).toArray();
+        const users = await usersCollection.find({ "luckyDraw.lastResetDate": tomorrow }).toArray();
         
         for (const user of users) {
             if (user.luckyDraw && user.luckyDraw.selectedNumber) {
                 selections.push({
                     email: user.email,
                     selectedNumber: user.luckyDraw.selectedNumber,
-                    selectedDate: user.luckyDraw.lastResetDate,
-                    hasWon: draw && user.luckyDraw.selectedNumber === draw.winningNumber
+                    selectedDate: user.luckyDraw.lastResetDate
                 });
             }
         }
         
         res.json({
             success: true,
-            winningNumber: draw?.winningNumber || null,
-            rewardAmount: draw?.rewardAmount || null,
-            isAnnounced: draw?.isAnnounced || false,
+            winningNumber: winningNumber,
+            rewardAmount: rewardAmount,
+            isAnnounced: todayDraw?.isAnnounced || false,
             selections: selections
         });
     } catch (error) {
@@ -1136,7 +1183,7 @@ connectDB().then((connected) => {
             console.log(`📊 Plans: 500, 1000, 1500 PKR`);
             console.log(`🎬 Video Commission: 30/40/50 PKR per video`);
             console.log(`👥 Referral Commission: 50/80/100 PKR`);
-            console.log(`🎲 Lucky Draw: Active (Resets at 12:00 AM Midnight PKT)`);
+            console.log(`🎲 Lucky Draw: Active - Users select for NEXT draw | Winners auto-paid at midnight`);
             console.log(`🪙 S-Coin System: Active`);
             console.log(`🔐 Admin: ${ADMIN_EMAIL}`);
         });
