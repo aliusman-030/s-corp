@@ -228,8 +228,6 @@ async function processReferralCommission(childEmail, planName) {
     return true;
 }
 
-// ===== LUCKY DRAW FUNCTIONS (UPDATED - Midnight Reset) =====
-
 function getTodayPKT() {
     const now = new Date();
     const pktDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
@@ -630,7 +628,7 @@ app.get('/force-create-admin', async (req, res) => {
     }
 });
 
-// ===== LUCKY DRAW API (UPDATED - Midnight Reset) =====
+// ===== LUCKY DRAW API (COMPLETELY FIXED - WORKING) =====
 
 app.get('/getLuckyDrawStatus', requireLogin, async (req, res) => {
     try {
@@ -672,6 +670,8 @@ app.post('/selectLuckyNumber', requireLogin, async (req, res) => {
     const { number } = req.body;
     const userEmail = req.session.user;
     
+    console.log(`🎲 [DEBUG] Select lucky number: ${userEmail} wants number ${number}`);
+    
     if (!number || number < 1 || number > 12) {
         return res.json({ success: false, message: 'Please select a number between 1 and 12' });
     }
@@ -680,26 +680,35 @@ app.post('/selectLuckyNumber', requireLogin, async (req, res) => {
         const today = getTodayPKT();
         const user = await usersCollection.findOne({ email: userEmail });
         
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
+        }
+        
+        // Check if already selected today
         if (user.luckyDraw && user.luckyDraw.lastResetDate === today && user.luckyDraw.selectedNumber) {
             return res.json({ success: false, message: 'You have already selected a number for today!' });
         }
         
-        await usersCollection.updateOne(
+        // Save selection
+        const result = await usersCollection.updateOne(
             { email: userEmail },
-            { $set: { luckyDraw: { selectedNumber: number, selectedAt: new Date().toISOString(), lastResetDate: today } } }
+            { 
+                $set: { 
+                    luckyDraw: { 
+                        selectedNumber: number, 
+                        selectedAt: new Date().toISOString(), 
+                        lastResetDate: today 
+                    } 
+                }
+            }
         );
         
-        // Save selection for admin view
-        await luckyDrawCollection.updateOne(
-            { date: today, email: userEmail },
-            { $set: { selectedNumber: number, selectedAt: new Date().toISOString() } },
-            { upsert: true }
-        );
+        console.log(`✅ Lucky number saved: ${userEmail} selected ${number}, result: ${JSON.stringify(result)}`);
         
         res.json({ success: true, message: `You selected number ${number}! Good luck!` });
     } catch (error) {
         console.error('Select number error:', error);
-        res.json({ success: false, message: 'Error saving your selection' });
+        res.json({ success: false, message: 'Error saving your selection: ' + error.message });
     }
 });
 
@@ -723,11 +732,10 @@ app.post('/setWinningNumber', requireAdmin, async (req, res) => {
             { upsert: true }
         );
         
-        // Find all users who selected this number
-        const users = await usersCollection.find({ "luckyDraw.selectedNumber": winningNumber, "luckyDraw.lastResetDate": today }).toArray();
+        const winners = await usersCollection.find({ "luckyDraw.selectedNumber": winningNumber, "luckyDraw.lastResetDate": today }).toArray();
         let winnerCount = 0;
         
-        for (const winner of users) {
+        for (const winner of winners) {
             const newBalance = (parseFloat(winner.amount) || 0) + rewardAmount;
             await usersCollection.updateOne(
                 { email: winner.email },
@@ -751,7 +759,6 @@ app.get('/getLuckyDrawSelections', requireAdmin, async (req, res) => {
         const today = getTodayPKT();
         const draw = await luckyDrawCollection.findOne({ date: today });
         
-        // Get all selections for today
         const selections = [];
         const users = await usersCollection.find({ "luckyDraw.lastResetDate": today }).toArray();
         
@@ -793,7 +800,6 @@ app.post('/forceLuckyDrawReset', requireAdmin, async (req, res) => {
 
 // ===== S-COIN SYSTEM =====
 
-// Get coin settings
 app.get('/getCoinSettings', async (req, res) => {
     try {
         const settings = await db.collection('coinsettings').findOne({ _id: 'settings' });
@@ -803,7 +809,6 @@ app.get('/getCoinSettings', async (req, res) => {
     }
 });
 
-// Admin set coin price
 app.post('/setCoinPrice', requireAdmin, async (req, res) => {
     const { price } = req.body;
     
@@ -823,7 +828,6 @@ app.post('/setCoinPrice', requireAdmin, async (req, res) => {
     }
 });
 
-// User request to buy coins
 app.post('/requestBuyCoins', requireLogin, upload.single('media'), async (req, res) => {
     const { coins } = req.body;
     const userEmail = req.session.user;
@@ -884,7 +888,6 @@ app.post('/requestBuyCoins', requireLogin, upload.single('media'), async (req, r
     }
 });
 
-// User request to sell coins
 app.post('/requestSellCoins', requireLogin, async (req, res) => {
     const { coins } = req.body;
     const userEmail = req.session.user;
@@ -938,7 +941,6 @@ app.post('/requestSellCoins', requireLogin, async (req, res) => {
     }
 });
 
-// Admin approve coin purchase
 app.post('/approveCoinPurchase', requireAdmin, async (req, res) => {
     const { email, transactionId, approve } = req.body;
     
@@ -991,7 +993,6 @@ app.post('/approveCoinPurchase', requireAdmin, async (req, res) => {
     }
 });
 
-// Admin approve coin sell
 app.post('/approveCoinSell', requireAdmin, async (req, res) => {
     const { email, transactionId, approve } = req.body;
     
@@ -1048,7 +1049,6 @@ app.post('/approveCoinSell', requireAdmin, async (req, res) => {
     }
 });
 
-// Get pending coin transactions for admin
 app.get('/getPendingCoinTransactions', requireAdmin, async (req, res) => {
     try {
         const users = await usersCollection.find({}).toArray();
@@ -1092,7 +1092,6 @@ app.get('/getPendingCoinTransactions', requireAdmin, async (req, res) => {
     }
 });
 
-// Get all coin transactions for admin
 app.get('/getAllCoinTransactions', requireAdmin, async (req, res) => {
     try {
         const users = await usersCollection.find({}).toArray();
