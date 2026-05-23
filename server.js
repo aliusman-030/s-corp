@@ -52,7 +52,7 @@ let luckyDrawCollection;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@site.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Abac@123';
 
-// ===== MULTER SETUP - LOCAL STORAGE (NO GOOGLE DRIVE) =====
+// ===== MULTER SETUP - LOCAL STORAGE ONLY =====
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, UPLOADS_DIR);
@@ -65,7 +65,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
     storage: storage, 
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx/;
         const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -487,7 +487,7 @@ app.post('/selectPlan', requireLogin, async (req, res) => {
     }
 });
 
-// ===== UPLOAD PAYMENT PROOF - LOCAL STORAGE (WORKING) =====
+// UPLOAD PAYMENT PROOF - LOCAL STORAGE
 app.post('/upload', requireLogin, upload.single('media'), async (req, res) => {
     try {
         if (!req.file) {
@@ -497,7 +497,6 @@ app.post('/upload', requireLogin, upload.single('media'), async (req, res) => {
         const user = await usersCollection.findOne({ email: req.session.user });
         if (!user) return res.json({ success: false, message: 'User not found' });
         
-        // Create public URL for the file
         const fileUrl = `/uploads/${req.file.filename}`;
         
         const fileInfo = {
@@ -529,7 +528,7 @@ app.post('/upload', requireLogin, upload.single('media'), async (req, res) => {
     }
 });
 
-// TOGGLE VIDEO ACCESS (MANUAL VERIFICATION)
+// TOGGLE VIDEO ACCESS
 app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
     const { email, grantAccess } = req.body;
     
@@ -1196,24 +1195,6 @@ app.get('/getAllCoinTransactions', requireAdmin, async (req, res) => {
         res.json({ success: true, transactions: allTransactions });
     } catch (error) {
         res.json({ success: false, message: error.message });
-    }
-});
-
-// ===== DEBUG ENDPOINT FOR ADMIN TO SEE UPLOADED FILES =====
-app.get('/admin/uploads', requireAdmin, async (req, res) => {
-    try {
-        const files = fs.readdirSync(UPLOADS_DIR);
-        res.json({
-            uploadsDir: UPLOADS_DIR,
-            fileCount: files.length,
-            files: files.map(f => ({
-                name: f,
-                url: `/uploads/${f}`,
-                size: fs.statSync(path.join(UPLOADS_DIR, f)).size
-            }))
-        });
-    } catch (error) {
-        res.json({ error: error.message });
     }
 });
 
