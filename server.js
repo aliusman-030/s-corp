@@ -19,7 +19,13 @@ const DB_NAME = 's-corp';
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'Public')));
-app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
+
+// Create Uploads directory if it doesn't exist
+const UPLOADS_DIR = path.join(__dirname, 'Uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 app.use(session({
     secret: process.env.SESSION_SECRET || 's-corp-super-secret-key-2024',
@@ -46,27 +52,29 @@ let luckyDrawCollection;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@site.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Abac@123';
 
-// ===== MULTER SETUP =====
-const UPLOADS_DIR = path.join(__dirname, 'Uploads');
+// ===== MULTER SETUP - LOCAL STORAGE (NO GOOGLE DRIVE) =====
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
         cb(null, UPLOADS_DIR);
     },
     filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + '-' + file.originalname);
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + '-' + file.originalname);
     }
 });
 
 const upload = multer({ 
-    storage, 
-    limits: { fileSize: 5 * 1024 * 1024 },
+    storage: storage, 
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     fileFilter: (req, file, cb) => {
         const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx/;
         const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
         const mimetype = allowedTypes.test(file.mimetype);
-        if (extname && mimetype) cb(null, true);
-        else cb(new Error('Only image and document files are allowed'));
+        if (extname && mimetype) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image and document files are allowed for payment proof'));
+        }
     }
 });
 
@@ -145,7 +153,6 @@ async function initializeDB() {
             console.log('✓ Created company balance');
         }
         
-        // Create coin settings if not exists
         const coinSettingsExist = await db.collection('coinsettings').findOne({ _id: 'settings' });
         if (!coinSettingsExist) {
             await db.collection('coinsettings').insertOne({
@@ -364,7 +371,6 @@ app.get('/profileData', requireLogin, async (req, res) => {
             grantedVideos = assignedKeys.map(key => ({ key, url: allVideos[key], isWatched: (user.watchedKeys || []).includes(key) })).filter(v => v.url && v.url.trim());
         }
         
-        // Get coin settings
         const coinSettings = await db.collection('coinsettings').findOne({ _id: 'settings' });
         const coinPrice = coinSettings?.currentPrice || 10;
         
@@ -481,26 +487,49 @@ app.post('/selectPlan', requireLogin, async (req, res) => {
     }
 });
 
+// ===== UPLOAD PAYMENT PROOF - LOCAL STORAGE (WORKING) =====
 app.post('/upload', requireLogin, upload.single('media'), async (req, res) => {
     try {
-        if (!req.file) return res.json({ success: false, message: 'No file uploaded' });
+        if (!req.file) {
+            return res.json({ success: false, message: 'No file uploaded' });
+        }
+        
         const user = await usersCollection.findOne({ email: req.session.user });
         if (!user) return res.json({ success: false, message: 'User not found' });
-        const uploads = user.uploads || [];
-        uploads.push({
-            filename: req.file.filename, originalName: req.file.originalname, size: req.file.size,
-            mimetype: req.file.mimetype, uploadedAt: new Date().toISOString(),
-            description: req.body.description || 'Payment proof', downloadUrl: `/uploads/${req.file.filename}`,
+        
+        // Create public URL for the file
+        const fileUrl = `/uploads/${req.file.filename}`;
+        
+        const fileInfo = {
+            filename: req.file.filename,
+            originalName: req.file.originalname,
+            size: req.file.size,
+            mimetype: req.file.mimetype,
+            uploadedAt: new Date().toISOString(),
+            description: req.body.description || 'Payment proof',
+            downloadUrl: fileUrl,
             type: 'payment_proof'
-        });
-        await usersCollection.updateOne({ email: req.session.user }, { $set: { uploads } });
+        };
+        
+        const uploads = user.uploads || [];
+        uploads.push(fileInfo);
+        
+        await usersCollection.updateOne(
+            { email: req.session.user },
+            { $set: { uploads: uploads } }
+        );
+        
+        console.log(`📎 Payment proof uploaded by ${req.session.user}: ${req.file.filename}`);
+        
         res.json({ success: true, message: 'Payment proof uploaded! Waiting for admin approval.' });
+        
     } catch (error) {
+        console.error('Upload error:', error);
         res.json({ success: false, message: error.message || 'Error uploading file' });
     }
 });
 
-// TOGGLE VIDEO ACCESS
+// TOGGLE VIDEO ACCESS (MANUAL VERIFICATION)
 app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
     const { email, grantAccess } = req.body;
     
@@ -523,6 +552,7 @@ app.post('/toggleVideoAccess', requireAdmin, async (req, res) => {
         if (grantAccess && !wasGranted) {
             await updateCompanyBalance(planData.price, 'collected', `Payment from ${email} for ${user.plan}`);
             await processReferralCommission(email, user.plan);
+            console.log(`✅ Video access GRANTED to ${email} for ${user.plan}`);
         }
         
         res.json({ success: true, message: grantAccess ? `Video access GRANTED to ${email}` : `Video access REVOKED from ${email}` });
@@ -1169,6 +1199,24 @@ app.get('/getAllCoinTransactions', requireAdmin, async (req, res) => {
     }
 });
 
+// ===== DEBUG ENDPOINT FOR ADMIN TO SEE UPLOADED FILES =====
+app.get('/admin/uploads', requireAdmin, async (req, res) => {
+    try {
+        const files = fs.readdirSync(UPLOADS_DIR);
+        res.json({
+            uploadsDir: UPLOADS_DIR,
+            fileCount: files.length,
+            files: files.map(f => ({
+                name: f,
+                url: `/uploads/${f}`,
+                size: fs.statSync(path.join(UPLOADS_DIR, f)).size
+            }))
+        });
+    } catch (error) {
+        res.json({ error: error.message });
+    }
+});
+
 // ===== START SERVER =====
 connectDB().then((connected) => {
     if (connected) {
@@ -1180,6 +1228,7 @@ connectDB().then((connected) => {
             console.log(`👥 Referral Commission: 50/80/100 PKR`);
             console.log(`🎲 Lucky Draw: Active`);
             console.log(`🪙 S-Coin System: Active`);
+            console.log(`📁 Local File Storage: ${UPLOADS_DIR}`);
             console.log(`🔐 Admin: ${ADMIN_EMAIL}`);
         });
     } else {
