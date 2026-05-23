@@ -4,4 +4,3 @@ uploads/
 .env
 .DS_Store
 *.log
-google-drive-credentials.json
