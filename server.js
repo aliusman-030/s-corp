@@ -28,6 +28,55 @@ const auth = new google.auth.GoogleAuth({
 
 const drive = google.drive({ version: 'v3', auth });
 
+// ===== FUNCTION TO UPLOAD TO GOOGLE DRIVE =====
+async function uploadToGoogleDrive(file, originalName) {
+    try {
+        const timestamp = Date.now();
+        const random = Math.round(Math.random() * 1E9);
+        const filename = `${timestamp}-${random}-${originalName}`;
+        
+        const requestBody = {
+            name: filename,
+            parents: [GOOGLE_DRIVE_FOLDER_ID],
+            mimeType: file.mimetype
+        };
+        
+        const { Readable } = require('stream');
+        const bufferStream = new Readable();
+        bufferStream.push(file.buffer);
+        bufferStream.push(null);
+        
+        const response = await drive.files.create({
+            requestBody: requestBody,
+            media: {
+                mimeType: file.mimetype,
+                body: bufferStream
+            },
+            fields: 'id'
+        });
+        
+        await drive.permissions.create({
+            fileId: response.data.id,
+            requestBody: {
+                role: 'reader',
+                type: 'anyone'
+            }
+        });
+        
+        const fileUrl = `https://drive.google.com/uc?id=${response.data.id}&export=view`;
+        
+        return {
+            success: true,
+            fileId: response.data.id,
+            downloadUrl: fileUrl,
+            filename: filename
+        };
+    } catch (error) {
+        console.error('Google Drive upload error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 // ===== MONGODB CONNECTION =====
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://s-corp-user:S-Corp2026@cluster0.rjxsj7i.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 const DB_NAME = 's-corp';
